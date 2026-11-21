@@ -2,9 +2,11 @@ import 'package:dio/dio.dart';
 
 import '../storage/token_storage.dart';
 import 'api_endpoints.dart';
+import 'api_response.dart';
 
-/// On 401: refresh once with a bare Dio client, retry original request, or
-/// clear the session.
+/// On 401 `TOKEN_EXPIRED`: refresh once, retry original request, or clear session.
+/// On `TOKEN_INVALID` / `ACCOUNT_DISABLED`: clear session (do not retry).
+/// On `ACCESS_DENIED` (403): pass through — do not log out.
 class AuthInterceptor extends QueuedInterceptor {
   AuthInterceptor({
     required this._dio,
@@ -29,7 +31,6 @@ class AuthInterceptor extends QueuedInterceptor {
 
   bool _refreshing = false;
 
-  /// Attach the same mock/network stack used by the main client (except auth).
   void attachRefreshInterceptors(List<Interceptor> interceptors) {
     _refreshDio.interceptors
       ..clear()
@@ -39,12 +40,29 @@ class AuthInterceptor extends QueuedInterceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final status = err.response?.statusCode;
+    final code = apiErrorCode(err.response?.data);
     final path = err.requestOptions.path;
     final isAuthPath = path.contains(ApiEndpoints.authLogin) ||
         path.contains(ApiEndpoints.authRegister) ||
-        path.contains(ApiEndpoints.authRefresh);
+        path.contains(ApiEndpoints.authRefresh) ||
+        path.contains(ApiEndpoints.authLogout);
 
-    if (status != 401 || isAuthPath || _refreshing) {
+    if (code == 'ACCESS_DENIED') {
+      handler.next(err);
+      return;
+    }
+
+    if (code == 'TOKEN_INVALID' || code == 'ACCOUNT_DISABLED') {
+      await _failSession(handler, err);
+      return;
+    }
+
+    final shouldRefresh = status == 401 &&
+        (code == 'TOKEN_EXPIRED' || code == null) &&
+        !isAuthPath &&
+        !_refreshing;
+
+    if (!shouldRefresh) {
       handler.next(err);
       return;
     }
@@ -60,19 +78,20 @@ class AuthInterceptor extends QueuedInterceptor {
       final refreshResponse = await _refreshDio.post<Map<String, dynamic>>(
         ApiEndpoints.authRefresh,
         data: {'refreshToken': refreshToken},
-        options: Options(
-          headers: {'Authorization': 'Bearer $refreshToken'},
-        ),
       );
 
       final data = refreshResponse.data;
       final accessToken = data?['accessToken'] as String?;
       final newRefresh = data?['refreshToken'] as String?;
-      if (accessToken == null || newRefresh == null) {
+      if (accessToken == null ||
+          accessToken.isEmpty ||
+          newRefresh == null ||
+          newRefresh.isEmpty) {
         await _failSession(handler, err);
         return;
       }
 
+      // Refresh tokens are single-use — persist the new pair before anything else.
       await _tokenStorage.saveTokens(
         accessToken: accessToken,
         refreshToken: newRefresh,

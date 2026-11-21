@@ -29,7 +29,7 @@ class OrderApiMock {
       'id': 'o_500',
       'orderNumber': 'DS-10021',
       'status': OrderStatus.confirmed,
-      'storeId': 's_001',
+      'storeId': '1',
       'totalAmount': 320.0,
       'itemsCount': 4,
       'paymentMethod': 'COD',
@@ -77,7 +77,7 @@ class OrderApiMock {
       'id': 'o_510',
       'orderNumber': 'DS-10025',
       'status': OrderStatus.picking,
-      'storeId': 's_001',
+      'storeId': '1',
       'totalAmount': 210.0,
       'itemsCount': 3,
       'paymentMethod': 'COD',
@@ -130,13 +130,13 @@ class OrderApiMock {
       'id': 'o_520',
       'orderNumber': 'DS-10026',
       'status': OrderStatus.outForDelivery,
-      'storeId': 's_001',
+      'storeId': '1',
       'totalAmount': 150.0,
       'itemsCount': 2,
       'paymentMethod': 'MOCK_PAY',
       'paymentStatus': 'MOCK_PAID',
       'customerName': 'Asha Customer',
-      'assignedRiderId': 'u_020',
+      'assignedRiderId': '20',
       'assignedRiderName': 'Delivery Rider',
       'delivery': {
         'recipientName': 'Asha Customer',
@@ -196,13 +196,13 @@ class OrderApiMock {
       'id': 'o_530',
       'orderNumber': 'DS-10028',
       'status': OrderStatus.assigned,
-      'storeId': 's_001',
+      'storeId': '1',
       'totalAmount': 275.0,
       'itemsCount': 3,
       'paymentMethod': 'COD',
       'paymentStatus': 'PENDING',
       'customerName': 'Asha Customer',
-      'assignedRiderId': 'u_020',
+      'assignedRiderId': '20',
       'assignedRiderName': 'Delivery Rider',
       'delivery': {
         'recipientName': 'Asha Customer',
@@ -346,7 +346,7 @@ class OrderApiMock {
     final productId = _cartItems[index]['productId'] as String;
     final product = CatalogApiMock().productById(
       id: productId,
-      storeId: _cartStoreId ?? 's_001',
+      storeId: _cartStoreId ?? '1',
     );
     final stockQty = product['stockQty'] as int;
     if (quantity > stockQty) {
@@ -528,7 +528,7 @@ class OrderApiMock {
       throw Exception('storeId is required');
     }
     var items = _orders.values
-        .where((order) => order['storeId'] == storeId)
+        .where((order) => '${order['storeId']}' == storeId)
         .where(
           (order) =>
               order['status'] != OrderStatus.cancelled &&
@@ -568,7 +568,7 @@ class OrderApiMock {
   }) {
     final order = _orders[orderId];
     if (order == null) throw Exception('Order not found');
-    if (order['storeId'] != storeId) {
+    if ('${order['storeId']}' != storeId) {
       throw Exception('Order does not belong to this store');
     }
 
@@ -596,7 +596,7 @@ class OrderApiMock {
   }) {
     final order = _orders[orderId];
     if (order == null) throw Exception('Order not found');
-    if (order['storeId'] != storeId) {
+    if ('${order['storeId']}' != storeId) {
       throw Exception('Order does not belong to this store');
     }
     final current = order['status'] as String;
@@ -630,8 +630,8 @@ class OrderApiMock {
 
     final items = _orders.values.where(
       (order) =>
-          order['storeId'] == storeId &&
-          order['assignedRiderId'] == riderId &&
+          '${order['storeId']}' == storeId &&
+          '${order['assignedRiderId']}' == riderId &&
           (order['status'] == OrderStatus.assigned ||
               order['status'] == OrderStatus.outForDelivery),
     );
@@ -668,10 +668,10 @@ class OrderApiMock {
   }) {
     final order = _orders[orderId];
     if (order == null) throw Exception('Order not found');
-    if (order['storeId'] != storeId) {
+    if ('${order['storeId']}' != storeId) {
       throw Exception('Order does not belong to this store');
     }
-    if (order['assignedRiderId'] != riderId) {
+    if ('${order['assignedRiderId']}' != riderId) {
       throw Exception('Order is not assigned to this rider');
     }
 

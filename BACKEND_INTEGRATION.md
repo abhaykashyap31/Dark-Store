@@ -4,6 +4,7 @@ This document describes how the iDarkStore Flutter app connects to the Spring Cl
 
 Related docs:
 
+- [`API_REFERENCE.md`](./API_REFERENCE.md) — **source of truth** for Auth, Users, Stores, Admin (Gateway `/api/v1`)
 - [`architecture.md`](./architecture.md) — full system architecture and API contracts
 - [`README.md`](./README.md) — run instructions and demo accounts
 
@@ -39,7 +40,7 @@ Related docs:
 
 | Define | Default | Meaning |
 |--------|---------|---------|
-| `API_BASE_URL` | `http://localhost:8080` | Gateway origin (no trailing slash) |
+| `API_BASE_URL` | `http://localhost:8080/api/v1` | Gateway base including `/api/v1` (web/desktop) |
 | `USE_MOCK_APIS` | `true` | `false` = real HTTP to Gateway |
 | `ENABLE_API_LOGS` | `false` | Log method/path/status in debug (tokens redacted) |
 | `API_CONNECT_TIMEOUT_SEC` | `15` | Connect timeout |
@@ -56,7 +57,7 @@ flutter run
 ```bash
 flutter run \
   --dart-define=USE_MOCK_APIS=false \
-  --dart-define=API_BASE_URL=http://localhost:8080 \
+  --dart-define=API_BASE_URL=http://localhost:8080/api/v1 \
   --dart-define=ENABLE_API_LOGS=true
 ```
 

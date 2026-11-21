@@ -2,8 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_endpoints.dart';
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/api_response.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/network/dio_error_mapper.dart';
 import '../../../shared/models/address.dart';
 import '../../../shared/models/order.dart';
 import '../../auth/application/auth_controller.dart';
@@ -15,13 +16,10 @@ class OrderRepository {
 
   Future<List<Address>> fetchAddresses() async {
     try {
-      final response = await _dio
-          .get<Map<String, dynamic>>(ApiEndpoints.usersMeAddresses);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(Address.fromJson).toList();
+      final response = await _dio.get<dynamic>(ApiEndpoints.usersMeAddresses);
+      return parseObjectList(response.data).map(Address.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load addresses');
+      throw mapDioError(e, fallback: 'Failed to load addresses');
     }
   }
 
@@ -29,11 +27,11 @@ class OrderRepository {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.usersMeAddresses,
-        data: draft.toJson()..remove('id'),
+        data: draft.toRequestBody(),
       );
       return Address.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to save address');
+      throw mapDioError(e, fallback: 'Failed to save address');
     }
   }
 
@@ -41,11 +39,19 @@ class OrderRepository {
     try {
       final response = await _dio.put<Map<String, dynamic>>(
         ApiEndpoints.userAddress(address.id),
-        data: address.toJson()..remove('id'),
+        data: address.toRequestBody(),
       );
       return Address.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to update address');
+      throw mapDioError(e, fallback: 'Failed to update address');
+    }
+  }
+
+  Future<void> deleteAddress(String addressId) async {
+    try {
+      await _dio.delete<void>(ApiEndpoints.userAddress(addressId));
+    } on DioException catch (e) {
+      throw mapDioError(e, fallback: 'Failed to delete address');
     }
   }
 
@@ -57,25 +63,22 @@ class OrderRepository {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.orders,
         data: {
-          'addressId': addressId,
+          'addressId': int.tryParse(addressId) ?? addressId,
           'paymentMethod': paymentMethod,
         },
       );
       return Order.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to place order');
+      throw mapDioError(e, fallback: 'Failed to place order');
     }
   }
 
   Future<List<Order>> fetchOrders() async {
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>(ApiEndpoints.orders);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(Order.fromJson).toList();
+      final response = await _dio.get<dynamic>(ApiEndpoints.orders);
+      return parseObjectList(response.data).map(Order.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load orders');
+      throw mapDioError(e, fallback: 'Failed to load orders');
     }
   }
 
@@ -85,7 +88,7 @@ class OrderRepository {
           await _dio.get<Map<String, dynamic>>(ApiEndpoints.order(orderId));
       return Order.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load order');
+      throw mapDioError(e, fallback: 'Failed to load order');
     }
   }
 
@@ -96,19 +99,8 @@ class OrderRepository {
       );
       return Order.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to cancel order');
+      throw mapDioError(e, fallback: 'Failed to cancel order');
     }
-  }
-
-  ApiException _error(DioException e, String fallback) {
-    final data = e.response?.data;
-    final message = data is Map && data['message'] is String
-        ? data['message'] as String
-        : e.message;
-    return ApiException(
-      message: message ?? fallback,
-      statusCode: e.response?.statusCode,
-    );
   }
 }
 

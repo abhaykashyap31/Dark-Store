@@ -7,6 +7,8 @@ class Address {
     required this.postalCode,
     this.line2,
     this.state,
+    this.latitude,
+    this.longitude,
     this.defaultAddress = false,
   });
 
@@ -16,7 +18,13 @@ class Address {
   final String? line2;
   final String city;
   final String? state;
+
+  /// Gateway field `pincode`.
   final String postalCode;
+  final double? latitude;
+  final double? longitude;
+
+  /// Gateway field `isDefault`.
   final bool defaultAddress;
 
   factory Address.fromJson(Map<String, dynamic> json) {
@@ -28,21 +36,37 @@ class Address {
       city: '${json['city'] ?? ''}',
       state: json['state']?.toString(),
       postalCode:
-          '${json['postalCode'] ?? json['postal_code'] ?? ''}',
-      defaultAddress: json['defaultAddress'] == true ||
+          '${json['pincode'] ?? json['postalCode'] ?? json['postal_code'] ?? ''}',
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      defaultAddress: json['isDefault'] == true ||
+          json['defaultAddress'] == true ||
           json['default_address'] == true,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
+        'id': int.tryParse(id) ?? id,
         'label': label,
         'line1': line1,
         'line2': line2,
         'city': city,
-        'state': state,
-        'postalCode': postalCode,
-        'defaultAddress': defaultAddress,
+        'pincode': postalCode,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+        'isDefault': defaultAddress,
+      };
+
+  /// Body for POST/PUT (no id).
+  Map<String, dynamic> toRequestBody() => {
+        if (label.trim().isNotEmpty) 'label': label.trim(),
+        'line1': line1.trim(),
+        if (line2 != null && line2!.trim().isNotEmpty) 'line2': line2!.trim(),
+        'city': city.trim(),
+        'pincode': postalCode.trim(),
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+        'isDefault': defaultAddress,
       };
 
   String get summary {

@@ -27,10 +27,10 @@ void main() {
       'email': 'new.manager@darkstore.com',
       'password': 'password',
       'role': 'MANAGER',
-      'storeId': 's_001',
+      'storeId': '1',
     });
     expect(created['role'], 'MANAGER');
-    expect(created['storeId'], 's_001');
+    expect('${created['storeId']}', '1');
   });
 
   test('deactivated user cannot login', () {
@@ -40,7 +40,7 @@ void main() {
     )['user'] as Map<String, dynamic>;
     auth.clear();
 
-    admin.setUserActive(user['id'] as String, false);
+    admin.setUserActive('${user['id']}', false);
 
     expect(
       () => auth.login(

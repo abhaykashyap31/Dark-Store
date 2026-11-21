@@ -1,130 +1,151 @@
 import '../core/constants/app_role.dart';
 
-/// Local mock for Auth & User Gateway paths.
+/// Local mock for Auth & User Gateway paths (API_REFERENCE.md shapes).
 ///
-/// Demo emails (password: `password`):
-/// - user@darkstore.com → USER
-/// - admin@darkstore.com → ADMIN
-/// - manager@darkstore.com → MANAGER (store s_001)
-/// - rider@darkstore.com → RIDER (store s_001)
-/// - inactive@darkstore.com → USER but active: false
+/// Demo accounts:
+/// - user@darkstore.com / password → CUSTOMER
+/// - admin@darkstore.com / Admin@123 → ADMIN
+/// - manager@darkstore.com / password → MANAGER (storeId 1)
+/// - rider@darkstore.com / password → RIDER (storeId 1)
+/// - inactive@darkstore.com / password → CUSTOMER DISABLED
 class AuthApiMock {
   static final AuthApiMock instance = AuthApiMock._();
 
   AuthApiMock._() {
-    _users.addAll(_seedUsers);
+    _users.addAll(
+      _seedUsers.map(
+        (key, value) => MapEntry(key, Map<String, dynamic>.from(value)),
+      ),
+    );
   }
 
   factory AuthApiMock() => instance;
 
   static const _seedUsers = <String, Map<String, dynamic>>{
     'user@darkstore.com': {
-      'id': 'u_001',
+      'id': 7,
       'email': 'user@darkstore.com',
       'name': 'Asha Customer',
       'phone': '9000000001',
-      'role': 'USER',
+      'role': 'CUSTOMER',
       'storeId': null,
-      'active': true,
+      'status': 'ACTIVE',
     },
     'admin@darkstore.com': {
-      'id': 'u_002',
+      'id': 1,
       'email': 'admin@darkstore.com',
       'name': 'Platform Admin',
       'phone': '9000000002',
       'role': 'ADMIN',
       'storeId': null,
-      'active': true,
+      'status': 'ACTIVE',
     },
     'manager@darkstore.com': {
-      'id': 'u_010',
+      'id': 10,
       'email': 'manager@darkstore.com',
       'name': 'Store Manager',
       'phone': '9000000010',
       'role': 'MANAGER',
-      'storeId': 's_001',
-      'active': true,
+      'storeId': 1,
+      'status': 'ACTIVE',
     },
     'rider@darkstore.com': {
-      'id': 'u_020',
+      'id': 20,
       'email': 'rider@darkstore.com',
       'name': 'Delivery Rider',
       'phone': '9000000020',
       'role': 'RIDER',
-      'storeId': 's_001',
-      'active': true,
+      'storeId': 1,
+      'status': 'ACTIVE',
     },
     'inactive@darkstore.com': {
-      'id': 'u_099',
+      'id': 99,
       'email': 'inactive@darkstore.com',
       'name': 'Inactive User',
       'phone': '9000000099',
-      'role': 'USER',
+      'role': 'CUSTOMER',
       'storeId': null,
-      'active': false,
+      'status': 'DISABLED',
     },
   };
 
   final Map<String, Map<String, dynamic>> _users = {};
   final Map<String, String> _passwords = {
-    for (final email in _seedUsers.keys) email: 'password',
+    'user@darkstore.com': 'password',
+    'admin@darkstore.com': 'Admin@123',
+    'manager@darkstore.com': 'password',
+    'rider@darkstore.com': 'password',
+    'inactive@darkstore.com': 'password',
   };
   final Map<String, List<Map<String, dynamic>>> _addresses = {
-    'u_001': [
+    '7': [
       {
-        'id': 'addr_001',
+        'id': 3,
         'label': 'Home',
         'line1': '12 MG Road',
         'line2': 'Near Metro',
         'city': 'Bengaluru',
-        'state': 'KA',
-        'postalCode': '560001',
-        'defaultAddress': true,
+        'pincode': '560001',
+        'latitude': 12.9716,
+        'longitude': 77.5946,
+        'isDefault': true,
       },
       {
-        'id': 'addr_002',
+        'id': 4,
         'label': 'Office',
         'line1': '42 Indiranagar 100 Feet Rd',
         'line2': '',
         'city': 'Bengaluru',
-        'state': 'KA',
-        'postalCode': '560038',
-        'defaultAddress': false,
+        'pincode': '560038',
+        'latitude': 12.9784,
+        'longitude': 77.6408,
+        'isDefault': false,
       },
     ],
   };
 
   Map<String, dynamic>? _currentUser;
+  int _nextUserId = 100;
+  int _nextAddressId = 10;
 
+  /// Register returns a User only (no tokens). Mock accepts optional [role]
+  /// so the Register tab can open Admin / Manager / Rider UIs; live Gateway
+  /// still creates CUSTOMER only.
   Map<String, dynamic> register({
     required String email,
     required String password,
     required String name,
     String? phone,
+    String? role,
   }) {
     final normalized = email.trim().toLowerCase();
     if (normalized.isEmpty || password.isEmpty || name.trim().isEmpty) {
       throw Exception('Name, email, and password are required');
     }
+    if (password.length < 8 || password.length > 72) {
+      throw Exception('password size must be between 8 and 72');
+    }
     if (_users.containsKey(normalized)) {
       throw Exception('Email is already registered');
     }
 
+    final parsed = AppRole.fromApi((role ?? 'CUSTOMER').trim());
+    final needsStore =
+        parsed == AppRole.manager || parsed == AppRole.rider;
+
     final user = <String, dynamic>{
-      'id': 'u_${DateTime.now().millisecondsSinceEpoch}',
+      'id': _nextUserId++,
       'email': normalized,
       'name': name.trim(),
       'phone': phone?.trim(),
-      'role': 'USER',
-      'storeId': null,
-      'active': true,
+      'role': parsed.apiValue,
+      'storeId': needsStore ? 1 : null,
+      'status': 'ACTIVE',
     };
 
     _users[normalized] = user;
     _passwords[normalized] = password;
-    _currentUser = Map<String, dynamic>.from(user);
-
-    return _sessionPayload(user);
+    return Map<String, dynamic>.from(user);
   }
 
   Map<String, dynamic> login({
@@ -136,10 +157,10 @@ class AuthApiMock {
     final expected = _passwords[normalized];
 
     if (user == null || expected == null || password != expected) {
-      throw Exception('Invalid email or password');
+      throw _coded('INVALID_CREDENTIALS', 'Invalid email or password');
     }
-    if (user['active'] != true) {
-      throw Exception('Account is deactivated');
+    if (user['status'] == 'DISABLED' || user['active'] == false) {
+      throw _coded('ACCOUNT_DISABLED', 'Account is deactivated');
     }
 
     _currentUser = Map<String, dynamic>.from(user);
@@ -155,10 +176,10 @@ class AuthApiMock {
       refreshToken: refreshToken,
     );
     if (user == null) {
-      throw Exception('Invalid refresh token');
+      throw _coded('TOKEN_INVALID', 'Invalid refresh token');
     }
-    if (user['active'] != true) {
-      throw Exception('Account is deactivated');
+    if (user['status'] == 'DISABLED') {
+      throw _coded('ACCOUNT_DISABLED', 'Account is deactivated');
     }
 
     _currentUser = Map<String, dynamic>.from(user);
@@ -169,25 +190,52 @@ class AuthApiMock {
     final user = _resolveUser(authorizationHeader: authorizationHeader) ??
         _currentUser;
     if (user == null) {
-      throw Exception('Unauthorized');
+      throw _coded('TOKEN_INVALID', 'Unauthorized');
     }
     return Map<String, dynamic>.from(user);
   }
 
-  List<Map<String, dynamic>> listUsersForAdmin() {
-    return _users.values
-        .map((u) => Map<String, dynamic>.from(u))
-        .toList()
-      ..sort((a, b) => (a['email'] as String).compareTo(b['email'] as String));
+  Map<String, dynamic> updateMe({
+    required Map<String, dynamic> body,
+    String? authorizationHeader,
+  }) {
+    final user = me(authorizationHeader: authorizationHeader);
+    final email = user['email'] as String;
+    final name = (body['name'] as String? ?? '').trim();
+    if (name.isEmpty) {
+      throw Exception('name is required');
+    }
+    user['name'] = name;
+    // Omitting phone or null clears it (API_REFERENCE).
+    if (!body.containsKey('phone') || body['phone'] == null) {
+      user['phone'] = null;
+    } else {
+      user['phone'] = body['phone'].toString();
+    }
+    _users[email] = user;
+    _currentUser = Map<String, dynamic>.from(user);
+    return Map<String, dynamic>.from(user);
   }
 
-  List<Map<String, dynamic>> listRidersForStore(String storeId) {
+  List<Map<String, dynamic>> listUsersForAdmin({String? role}) {
+    var list = _users.values.map((u) => Map<String, dynamic>.from(u)).toList();
+    if (role != null && role.trim().isNotEmpty) {
+      final r = role.trim().toUpperCase();
+      list = list.where((u) => u['role'] == r).toList();
+    }
+    list.sort((a, b) =>
+        (a['email'] as String).compareTo(b['email'] as String));
+    return list;
+  }
+
+  List<Map<String, dynamic>> listRidersForStore(Object storeId) {
+    final sid = storeId.toString();
     return _users.values
         .where(
           (u) =>
               u['role'] == 'RIDER' &&
-              u['storeId'] == storeId &&
-              u['active'] == true,
+              '${u['storeId']}' == sid &&
+              u['status'] == 'ACTIVE',
         )
         .map((u) => Map<String, dynamic>.from(u))
         .toList();
@@ -197,14 +245,15 @@ class AuthApiMock {
     required String email,
     required String password,
     required String name,
-    required AppRole role,
-    required String storeId,
+    required String role,
+    required Object storeId,
     String? phone,
   }) {
-    if (role != AppRole.manager && role != AppRole.rider) {
-      throw Exception('Only MANAGER or RIDER can be created by admin');
-    }
     final normalized = email.trim().toLowerCase();
+    final roleValue = role.trim().toUpperCase();
+    if (roleValue != 'MANAGER' && roleValue != 'RIDER') {
+      throw Exception('role must be MANAGER or RIDER');
+    }
     if (normalized.isEmpty || password.isEmpty || name.trim().isEmpty) {
       throw Exception('Name, email, and password are required');
     }
@@ -213,45 +262,64 @@ class AuthApiMock {
     }
 
     final user = <String, dynamic>{
-      'id': 'u_${DateTime.now().millisecondsSinceEpoch}',
+      'id': _nextUserId++,
       'email': normalized,
       'name': name.trim(),
       'phone': phone?.trim(),
-      'role': role.apiValue,
-      'storeId': storeId,
-      'active': true,
+      'role': roleValue,
+      'storeId': int.tryParse(storeId.toString()) ?? storeId,
+      'status': 'ACTIVE',
     };
     _users[normalized] = user;
     _passwords[normalized] = password;
     return Map<String, dynamic>.from(user);
   }
 
+  Map<String, dynamic> setUserStatus({
+    required String userId,
+    required String status,
+    String? actorUserId,
+  }) {
+    final target = _users.values
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (u) => '${u!['id']}' == userId,
+          orElse: () => null,
+        );
+    if (target == null) {
+      throw Exception('User not found');
+    }
+    if (actorUserId != null && '${target['id']}' == actorUserId) {
+      throw Exception('An admin cannot change their own status');
+    }
+    final next = status.toUpperCase();
+    if (next != 'ACTIVE' && next != 'DISABLED') {
+      throw Exception('status must be ACTIVE or DISABLED');
+    }
+    target['status'] = next;
+    if (_currentUser != null && '${_currentUser!['id']}' == userId) {
+      _currentUser = Map<String, dynamic>.from(target);
+    }
+    return Map<String, dynamic>.from(target);
+  }
+
+  /// Legacy helper used by older mocks.
   Map<String, dynamic> setUserActive({
     required String userId,
     required bool active,
   }) {
-    final entry = _users.entries.where((e) => e.value['id'] == userId);
-    if (entry.isEmpty) {
-      throw Exception('User not found');
-    }
-    final user = entry.first.value;
-    if (user['role'] == 'ADMIN' && !active) {
-      throw Exception('Cannot deactivate the platform admin account');
-    }
-    user['active'] = active;
-    if (!active && _currentUser?['id'] == userId) {
-      _currentUser = null;
-    }
-    return Map<String, dynamic>.from(user);
+    return setUserStatus(
+      userId: userId,
+      status: active ? 'ACTIVE' : 'DISABLED',
+    );
   }
 
-  Map<String, dynamic> listAddresses({String? authorizationHeader}) {
+  List<Map<String, dynamic>> listAddresses({String? authorizationHeader}) {
     final user = me(authorizationHeader: authorizationHeader);
-    final userId = user['id'] as String;
-    final items = (_addresses[userId] ?? [])
+    final userId = '${user['id']}';
+    return (_addresses[userId] ?? [])
         .map((a) => Map<String, dynamic>.from(a))
         .toList();
-    return {'items': items};
   }
 
   Map<String, dynamic> addAddress({
@@ -259,25 +327,27 @@ class AuthApiMock {
     String? authorizationHeader,
   }) {
     final user = me(authorizationHeader: authorizationHeader);
-    final userId = user['id'] as String;
+    final userId = '${user['id']}';
     final list = _addresses.putIfAbsent(userId, () => []);
     final address = <String, dynamic>{
-      'id': 'addr_${DateTime.now().millisecondsSinceEpoch}',
+      'id': _nextAddressId++,
       'label': body['label'] ?? 'Home',
       'line1': body['line1'] ?? '',
       'line2': body['line2'] ?? '',
       'city': body['city'] ?? '',
-      'state': body['state'] ?? '',
-      'postalCode': body['postalCode'] ?? body['postal_code'] ?? '',
-      'defaultAddress': body['defaultAddress'] == true || list.isEmpty,
+      'pincode': body['pincode'] ?? body['postalCode'] ?? '',
+      'latitude': body['latitude'],
+      'longitude': body['longitude'],
+      'isDefault': body['isDefault'] == true || list.isEmpty,
     };
     if (address['line1'].toString().trim().isEmpty ||
-        address['city'].toString().trim().isEmpty) {
-      throw Exception('Address line1 and city are required');
+        address['city'].toString().trim().isEmpty ||
+        address['pincode'].toString().trim().isEmpty) {
+      throw Exception('Address line1, city and pincode are required');
     }
-    if (address['defaultAddress'] == true) {
+    if (address['isDefault'] == true) {
       for (final existing in list) {
-        existing['defaultAddress'] = false;
+        existing['isDefault'] = false;
       }
     }
     list.add(address);
@@ -290,9 +360,9 @@ class AuthApiMock {
     String? authorizationHeader,
   }) {
     final user = me(authorizationHeader: authorizationHeader);
-    final userId = user['id'] as String;
+    final userId = '${user['id']}';
     final list = _addresses.putIfAbsent(userId, () => []);
-    final index = list.indexWhere((a) => a['id'] == addressId);
+    final index = list.indexWhere((a) => '${a['id']}' == addressId);
     if (index < 0) {
       throw Exception('Address not found');
     }
@@ -303,31 +373,47 @@ class AuthApiMock {
       'line1': body['line1'] ?? existing['line1'],
       'line2': body['line2'] ?? existing['line2'],
       'city': body['city'] ?? existing['city'],
-      'state': body['state'] ?? existing['state'],
-      'postalCode':
-          body['postalCode'] ?? body['postal_code'] ?? existing['postalCode'],
-      'defaultAddress': body.containsKey('defaultAddress')
-          ? body['defaultAddress'] == true
-          : body.containsKey('default_address')
-              ? body['default_address'] == true
-              : existing['defaultAddress'] == true,
+      'pincode':
+          body['pincode'] ?? body['postalCode'] ?? existing['pincode'],
+      'latitude': body.containsKey('latitude')
+          ? body['latitude']
+          : existing['latitude'],
+      'longitude': body.containsKey('longitude')
+          ? body['longitude']
+          : existing['longitude'],
+      'isDefault': body.containsKey('isDefault')
+          ? body['isDefault'] == true
+          : existing['isDefault'] == true,
     };
     if (updated['line1'].toString().trim().isEmpty ||
-        updated['city'].toString().trim().isEmpty) {
-      throw Exception('Address line1 and city are required');
+        updated['city'].toString().trim().isEmpty ||
+        updated['pincode'].toString().trim().isEmpty) {
+      throw Exception('Address line1, city and pincode are required');
     }
-    if (updated['defaultAddress'] == true) {
+    if (updated['isDefault'] == true) {
       for (final item in list) {
-        item['defaultAddress'] = item['id'] == addressId;
+        item['isDefault'] = '${item['id']}' == addressId;
       }
     }
     list[index] = updated;
     return Map<String, dynamic>.from(updated);
   }
 
+  void deleteAddress({
+    required String addressId,
+    String? authorizationHeader,
+  }) {
+    final user = me(authorizationHeader: authorizationHeader);
+    final userId = '${user['id']}';
+    final list = _addresses[userId];
+    if (list == null) throw Exception('Address not found');
+    final before = list.length;
+    list.removeWhere((a) => '${a['id']}' == addressId);
+    if (list.length == before) throw Exception('Address not found');
+  }
+
   void clear() => _currentUser = null;
 
-  /// Test helper: restore seed users and clear session.
   void resetForTests() {
     _currentUser = null;
     _users
@@ -339,30 +425,25 @@ class AuthApiMock {
       );
     _passwords
       ..clear()
-      ..addAll({for (final email in _seedUsers.keys) email: 'password'});
+      ..addAll({
+        'user@darkstore.com': 'password',
+        'admin@darkstore.com': 'Admin@123',
+        'manager@darkstore.com': 'password',
+        'rider@darkstore.com': 'password',
+        'inactive@darkstore.com': 'password',
+      });
     _addresses
       ..clear()
       ..addAll({
-        'u_001': [
+        '7': [
           {
-            'id': 'addr_001',
+            'id': 3,
             'label': 'Home',
             'line1': '12 MG Road',
             'line2': 'Near Metro',
             'city': 'Bengaluru',
-            'state': 'KA',
-            'postalCode': '560001',
-            'defaultAddress': true,
-          },
-          {
-            'id': 'addr_002',
-            'label': 'Office',
-            'line1': '42 Indiranagar 100 Feet Rd',
-            'line2': '',
-            'city': 'Bengaluru',
-            'state': 'KA',
-            'postalCode': '560038',
-            'defaultAddress': false,
+            'pincode': '560001',
+            'isDefault': true,
           },
         ],
       });
@@ -373,7 +454,7 @@ class AuthApiMock {
     bool refreshed = false,
   }) {
     final role = AppRole.fromApi(user['role'] as String);
-    final id = user['id'] as String;
+    final id = '${user['id']}';
     final suffix = refreshed ? '-refreshed' : '';
     return {
       'accessToken': 'mock-access|${role.name}|$id$suffix',
@@ -399,27 +480,42 @@ class AuthApiMock {
     if (parts.length >= 3) {
       final userId = parts[2].replaceAll('-refreshed', '');
       for (final user in _users.values) {
-        if (user['id'] == userId) {
+        if ('${user['id']}' == userId) {
           return Map<String, dynamic>.from(user);
         }
       }
     }
 
-    // Backward-compatible: older mock tokens contained role name only.
     for (final user in _users.values) {
       final roleName = (user['role'] as String).toLowerCase();
-      if (token.toLowerCase().contains(roleName)) {
+      if (token.toLowerCase().contains(roleName) ||
+          (roleName == 'customer' && token.toLowerCase().contains('user'))) {
         return Map<String, dynamic>.from(user);
       }
     }
     return null;
   }
 
+  Exception _coded(String code, String message) =>
+      Exception('$code::$message');
+
   static List<Map<String, String>> get demoAccounts => [
-        {'email': 'user@darkstore.com', 'role': 'USER'},
-        {'email': 'admin@darkstore.com', 'role': 'ADMIN'},
-        {'email': 'manager@darkstore.com', 'role': 'MANAGER'},
-        {'email': 'rider@darkstore.com', 'role': 'RIDER'},
-        {'email': 'inactive@darkstore.com', 'role': 'USER (inactive)'},
+        {'email': 'user@darkstore.com', 'role': 'CUSTOMER', 'password': 'password'},
+        {
+          'email': 'admin@darkstore.com',
+          'role': 'ADMIN',
+          'password': 'Admin@123',
+        },
+        {
+          'email': 'manager@darkstore.com',
+          'role': 'MANAGER',
+          'password': 'password',
+        },
+        {'email': 'rider@darkstore.com', 'role': 'RIDER', 'password': 'password'},
+        {
+          'email': 'inactive@darkstore.com',
+          'role': 'CUSTOMER (disabled)',
+          'password': 'password',
+        },
       ];
 }

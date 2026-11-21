@@ -160,12 +160,17 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
                       TextFormField(
                         controller: _postal,
                         decoration: const InputDecoration(
-                          labelText: 'Postal code',
+                          labelText: 'Pincode',
                         ),
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty
-                                ? 'Required'
-                                : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Required';
+                          }
+                          if (value.trim().length > 10) {
+                            return 'Max 10 characters';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 8),
                       CheckboxListTile(

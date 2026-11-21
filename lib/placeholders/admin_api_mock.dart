@@ -1,4 +1,3 @@
-import '../core/constants/app_role.dart';
 import 'auth_api_mock.dart';
 import 'catalog_api_mock.dart';
 
@@ -26,7 +25,7 @@ class AdminApiMock {
   void _seed() {
     _stores.addAll([
       {
-        'id': 's_001',
+        'id': 1,
         'name': 'Koramangala Darkstore',
         'code': 'BLR-KOR',
         'city': 'Bengaluru',
@@ -35,7 +34,7 @@ class AdminApiMock {
         'active': true,
       },
       {
-        'id': 's_002',
+        'id': 2,
         'name': 'Indiranagar Darkstore',
         'code': 'BLR-IND',
         'city': 'Bengaluru',
@@ -115,13 +114,13 @@ class AdminApiMock {
   }
 
   Map<String, dynamic> updateStore(String id, Map<String, dynamic> body) {
-    final index = _stores.indexWhere((s) => s['id'] == id);
+    final index = _stores.indexWhere((s) => '${s['id']}' == id);
     if (index < 0) throw Exception('Store not found');
     final store = _stores[index];
     if (body['name'] != null) store['name'] = (body['name'] as String).trim();
     if (body['code'] != null) {
       final code = (body['code'] as String).trim().toUpperCase();
-      if (_stores.any((s) => s['id'] != id && s['code'] == code)) {
+      if (_stores.any((s) => '${s['id']}' != id && s['code'] == code)) {
         throw Exception('Store code already exists');
       }
       store['code'] = code;
@@ -136,7 +135,7 @@ class AdminApiMock {
   }
 
   Map<String, dynamic> setStoreActive(String id, bool active) {
-    final index = _stores.indexWhere((s) => s['id'] == id);
+    final index = _stores.indexWhere((s) => '${s['id']}' == id);
     if (index < 0) throw Exception('Store not found');
     _stores[index]['active'] = active;
     CatalogApiMock().upsertStore(_stores[index]);
@@ -161,11 +160,11 @@ class AdminApiMock {
     if (role != 'MANAGER' && role != 'RIDER') {
       throw Exception('Admin can only create MANAGER or RIDER accounts');
     }
-    final storeId = body['storeId'] as String?;
-    if (storeId == null || storeId.isEmpty) {
+    final storeId = body['storeId'];
+    if (storeId == null || '$storeId'.isEmpty) {
       throw Exception('storeId is required for MANAGER and RIDER');
     }
-    if (!_stores.any((s) => s['id'] == storeId && s['active'] == true)) {
+    if (!_stores.any((s) => '${s['id']}' == '$storeId' && s['active'] == true)) {
       throw Exception('Select an active store');
     }
 
@@ -174,13 +173,16 @@ class AdminApiMock {
       password: body['password'] as String? ?? 'password',
       name: body['name'] as String? ?? '',
       phone: body['phone'] as String?,
-      role: AppRole.fromApi(role),
+      role: role,
       storeId: storeId,
     );
   }
 
   Map<String, dynamic> setUserActive(String id, bool active) {
-    return AuthApiMock().setUserActive(userId: id, active: active);
+    return AuthApiMock().setUserStatus(
+      userId: id,
+      status: active ? 'ACTIVE' : 'DISABLED',
+    );
   }
 
   // --- Catalogue ---

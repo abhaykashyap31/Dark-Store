@@ -2,8 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_endpoints.dart';
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/api_response.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/network/dio_error_mapper.dart';
 import '../../../shared/models/admin_product.dart';
 import '../../../shared/models/app_user.dart';
 import '../../../shared/models/category.dart';
@@ -14,68 +15,68 @@ class AdminRepository {
 
   final Dio _dio;
 
+  /// Admin store list uses the same GET `/stores` (includes inactive).
   Future<List<Store>> fetchStores() async {
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>(ApiEndpoints.adminStores);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(Store.fromJson).toList();
+      final response = await _dio.get<dynamic>(ApiEndpoints.stores);
+      return parseObjectList(response.data).map(Store.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load stores');
+      throw mapDioError(e, fallback: 'Failed to load stores');
     }
   }
 
   Future<Store> createStore(Map<String, dynamic> body) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiEndpoints.adminStores,
+        ApiEndpoints.stores,
         data: body,
       );
       return Store.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to create store');
+      throw mapDioError(e, fallback: 'Failed to create store');
     }
   }
 
   Future<Store> updateStore(String id, Map<String, dynamic> body) async {
     try {
       final response = await _dio.put<Map<String, dynamic>>(
-        ApiEndpoints.adminStore(id),
+        ApiEndpoints.store(id),
         data: body,
       );
       return Store.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to update store');
+      throw mapDioError(e, fallback: 'Failed to update store');
     }
   }
 
+  /// Toggle via PUT `/stores/{id}` (no dedicated active patch in API_REFERENCE).
   Future<Store> setStoreActive(String id, bool active) async {
     try {
-      final response = await _dio.patch<Map<String, dynamic>>(
-        ApiEndpoints.adminStoreActive(id),
-        data: {'active': active},
+      final current = await _dio.get<Map<String, dynamic>>(ApiEndpoints.store(id));
+      final body = Map<String, dynamic>.from(current.data ?? {});
+      body['active'] = active;
+      body.remove('id');
+      final response = await _dio.put<Map<String, dynamic>>(
+        ApiEndpoints.store(id),
+        data: body,
       );
       return Store.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to update store status');
+      throw mapDioError(e, fallback: 'Failed to update store status');
     }
   }
 
-  Future<List<AppUser>> fetchUsers({String? role, bool? active}) async {
+  Future<List<AppUser>> fetchUsers({String? role}) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
+      final response = await _dio.get<dynamic>(
         ApiEndpoints.adminUsers,
         queryParameters: {
-          'role': ?role,
-          'active': ?active,
+          if (role != null && role.isNotEmpty) 'role': role,
         },
       );
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(AppUser.fromJson).toList();
+      return parseObjectList(response.data).map(AppUser.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load users');
+      throw mapDioError(e, fallback: 'Failed to load users');
     }
   }
 
@@ -95,37 +96,34 @@ class AdminRepository {
           'email': email,
           'password': password,
           'role': role,
-          'storeId': storeId,
+          'storeId': int.tryParse(storeId) ?? storeId,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
         },
       );
       return AppUser.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to create account');
+      throw mapDioError(e, fallback: 'Failed to create account');
     }
   }
 
   Future<AppUser> setUserActive(String id, bool active) async {
     try {
       final response = await _dio.patch<Map<String, dynamic>>(
-        ApiEndpoints.adminUserActive(id),
-        data: {'active': active},
+        ApiEndpoints.adminUserStatus(id),
+        data: {'status': active ? 'ACTIVE' : 'DISABLED'},
       );
       return AppUser.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to update account status');
+      throw mapDioError(e, fallback: 'Failed to update account status');
     }
   }
 
   Future<List<AdminProduct>> fetchProducts() async {
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>(ApiEndpoints.adminProducts);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(AdminProduct.fromJson).toList();
+      final response = await _dio.get<dynamic>(ApiEndpoints.adminProducts);
+      return parseObjectList(response.data).map(AdminProduct.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load products');
+      throw mapDioError(e, fallback: 'Failed to load products');
     }
   }
 
@@ -137,7 +135,7 @@ class AdminRepository {
       );
       return AdminProduct.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to create product');
+      throw mapDioError(e, fallback: 'Failed to create product');
     }
   }
 
@@ -152,7 +150,7 @@ class AdminRepository {
       );
       return AdminProduct.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to update product');
+      throw mapDioError(e, fallback: 'Failed to update product');
     }
   }
 
@@ -164,19 +162,16 @@ class AdminRepository {
       );
       return AdminProduct.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to update product status');
+      throw mapDioError(e, fallback: 'Failed to update product status');
     }
   }
 
   Future<List<Category>> fetchCategories() async {
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>(ApiEndpoints.categories);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(Category.fromJson).toList();
+      final response = await _dio.get<dynamic>(ApiEndpoints.categories);
+      return parseObjectList(response.data).map(Category.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load categories');
+      throw mapDioError(e, fallback: 'Failed to load categories');
     }
   }
 
@@ -188,19 +183,8 @@ class AdminRepository {
       );
       return Category.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to create category');
+      throw mapDioError(e, fallback: 'Failed to create category');
     }
-  }
-
-  ApiException _error(DioException e, String fallback) {
-    final data = e.response?.data;
-    final message = data is Map && data['message'] is String
-        ? data['message'] as String
-        : e.message;
-    return ApiException(
-      message: message ?? fallback,
-      statusCode: e.response?.statusCode,
-    );
   }
 }
 

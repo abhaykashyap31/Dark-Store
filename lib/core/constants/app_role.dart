@@ -4,11 +4,24 @@ enum AppRole {
   manager,
   rider;
 
-  String get apiValue => name.toUpperCase();
+  /// Gateway role string (API_REFERENCE.md).
+  String get apiValue {
+    switch (this) {
+      case AppRole.user:
+        return 'CUSTOMER';
+      case AppRole.admin:
+        return 'ADMIN';
+      case AppRole.manager:
+        return 'MANAGER';
+      case AppRole.rider:
+        return 'RIDER';
+    }
+  }
 
   static AppRole fromApi(String value) {
     switch (value.toUpperCase()) {
-      case 'USER':
+      case 'CUSTOMER':
+      case 'USER': // legacy mock / older docs
         return AppRole.user;
       case 'ADMIN':
         return AppRole.admin;

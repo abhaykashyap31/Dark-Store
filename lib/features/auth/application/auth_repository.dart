@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_role.dart';
 import '../../../core/network/api_endpoints.dart';
-import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/network/dio_error_mapper.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../shared/models/app_user.dart';
 
@@ -27,14 +28,17 @@ class AuthRepository {
       );
       return await _persistSession(response.data!);
     } on DioException catch (e) {
-      throw _asApiException(e, fallback: 'Login failed');
+      throw mapDioError(e, fallback: 'Login failed');
     }
   }
 
-  Future<AuthSession> register({
+  /// POST `/auth/register` returns a User (not a session). Call [login] after.
+  /// [role] is sent for mock/demo; live Gateway creates CUSTOMER only.
+  Future<AppUser> register({
     required String name,
     required String email,
     required String password,
+    required AppRole role,
     String? phone,
   }) async {
     try {
@@ -44,12 +48,13 @@ class AuthRepository {
           'name': name,
           'email': email,
           'password': password,
+          'role': role.apiValue,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
         },
       );
-      return await _persistSession(response.data!);
+      return AppUser.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _asApiException(e, fallback: 'Registration failed');
+      throw mapDioError(e, fallback: 'Registration failed');
     }
   }
 
@@ -61,13 +66,9 @@ class AuthRepository {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.authRefresh,
         data: {'refreshToken': refreshToken},
-        options: Options(
-          headers: {'Authorization': 'Bearer $refreshToken'},
-        ),
       );
       final session = await _persistSession(response.data!);
 
-      // Prefer live profile from /users/me after refresh.
       try {
         final me = await fetchMe();
         return AuthSession(
@@ -91,15 +92,40 @@ class AuthRepository {
           await _dio.get<Map<String, dynamic>>(ApiEndpoints.usersMe);
       return AppUser.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _asApiException(e, fallback: 'Failed to load profile');
+      throw mapDioError(e, fallback: 'Failed to load profile');
+    }
+  }
+
+  Future<AppUser> updateMe({
+    required String name,
+    String? phone,
+  }) async {
+    try {
+      final response = await _dio.put<Map<String, dynamic>>(
+        ApiEndpoints.usersMe,
+        data: {
+          'name': name,
+          'phone': phone,
+        },
+      );
+      return AppUser.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw mapDioError(e, fallback: 'Failed to update profile');
     }
   }
 
   Future<void> logout() async {
+    final refreshToken = await _tokenStorage.readRefreshToken();
     try {
-      await _dio.post<void>(ApiEndpoints.authLogout);
+      await _dio.post<void>(
+        ApiEndpoints.authLogout,
+        data: {
+          if (refreshToken != null && refreshToken.isNotEmpty)
+            'refreshToken': refreshToken,
+        },
+      );
     } catch (_) {
-      // Best-effort; always clear local tokens.
+      // Best-effort; always clear local tokens (API returns 204).
     } finally {
       await _tokenStorage.clear();
     }
@@ -112,21 +138,6 @@ class AuthRepository {
       refreshToken: session.refreshToken,
     );
     return session;
-  }
-
-  ApiException _asApiException(DioException e, {required String fallback}) {
-    return ApiException(
-      message: _messageFrom(e) ?? fallback,
-      statusCode: e.response?.statusCode,
-    );
-  }
-
-  String? _messageFrom(DioException e) {
-    final data = e.response?.data;
-    if (data is Map && data['message'] is String) {
-      return data['message'] as String;
-    }
-    return e.message;
   }
 }
 

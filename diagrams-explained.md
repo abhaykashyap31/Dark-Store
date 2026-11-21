@@ -239,5 +239,3 @@ These appear on the ERD / architecture but **must not** be called from the app:
 | Which microservice / URL do I call?       | `1-architecture.png`  |
 | Which fields go in my models & mock JSON? | `entities-erd-v2.png` |
 | Which screens / phases to build?          | `architecture.md`     |
-
-**One line summary:** the architecture PNG is the **wiring**; the ERD PNG is the **data shape**; Flutter mocks sit in between until the Java/Spring Boot Gateway is connected.

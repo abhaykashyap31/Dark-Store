@@ -85,10 +85,10 @@ class AuthController extends StateNotifier<AuthState> {
         email: email,
         password: password,
       );
-      if (!session.user.active) {
+      if (!session.user.active || session.user.status == 'DISABLED') {
         await _repository.logout();
         state = const AuthState.unauthenticated(
-          errorMessage: 'Account is deactivated',
+          errorMessage: 'This account is disabled',
         );
         return false;
       }
@@ -100,20 +100,36 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  /// Register with [role], then login so the router opens that role's home.
   Future<bool> register({
     required String name,
     required String email,
     required String password,
+    required AppRole role,
     String? phone,
   }) async {
     state = state.copyWith(isBusy: true, clearError: true);
     try {
-      final session = await _repository.register(
+      await _repository.register(
         name: name,
         email: email,
         password: password,
         phone: phone,
+        role: role,
       );
+      final session = await _repository.login(
+        email: email,
+        password: password,
+      );
+      if (session.user.role != role) {
+        await _repository.logout();
+        state = AuthState.unauthenticated(
+          errorMessage:
+              'Account was created as ${session.user.role.label}. '
+              'Staff roles need an admin account on the live Gateway.',
+        );
+        return false;
+      }
       state = AuthState.authenticated(session.user);
       return true;
     } catch (e) {
@@ -126,10 +142,10 @@ class AuthController extends StateNotifier<AuthState> {
     if (state.status != AuthStatus.authenticated) return;
     try {
       final me = await _repository.fetchMe();
-      if (!me.active) {
+      if (!me.active || me.status == 'DISABLED') {
         await logout();
         state = const AuthState.unauthenticated(
-          errorMessage: 'Account is deactivated',
+          errorMessage: 'This account is disabled',
         );
         return;
       }
@@ -144,9 +160,9 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState.unauthenticated();
   }
 
-  void forceUnauthenticated() {
-    state = const AuthState.unauthenticated(
-      errorMessage: 'Session expired. Please sign in again.',
+  void forceUnauthenticated({String? message}) {
+    state = AuthState.unauthenticated(
+      errorMessage: message ?? 'Session expired. Please sign in again.',
     );
   }
 
@@ -155,7 +171,7 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   String _message(Object e) {
-    if (e is ApiException) return e.message;
+    if (e is ApiException) return e.displayMessage;
     return e.toString().replaceFirst('Exception: ', '');
   }
 }

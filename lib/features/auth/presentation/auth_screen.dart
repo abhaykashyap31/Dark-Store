@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/constants/app_role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../placeholders/auth_api_mock.dart';
 import '../../../shared/widgets/brand_backdrop.dart';
@@ -35,6 +36,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   final _registerPassword = TextEditingController();
   final _confirm = TextEditingController();
 
+  AppRole? _registerRole;
   bool _submitting = false;
 
   @override
@@ -84,16 +86,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           email: _registerEmail.text.trim(),
           password: _registerPassword.text,
           phone: _phone.text.trim(),
+          role: _registerRole!,
         );
     if (mounted) setState(() => _submitting = false);
   }
 
-  void _fillDemo(String email) {
+  void _fillDemo(Map<String, String> account) {
     setState(() {
       _tabs.animateTo(0);
-      _loginEmail.text = email;
-      _loginPassword.text = 'password';
+      _loginEmail.text = account['email'] ?? '';
+      _loginPassword.text = account['password'] ?? 'password';
     });
+    ref.read(authControllerProvider.notifier).clearError();
   }
 
   @override
@@ -183,6 +187,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                                   phoneController: _phone,
                                   passwordController: _registerPassword,
                                   confirmController: _confirm,
+                                  selectedRole: _registerRole,
+                                  onRoleChanged: (role) =>
+                                      setState(() => _registerRole = role),
                                   errorMessage: auth.errorMessage,
                                   submitting: _submitting,
                                   onSubmit: _register,
@@ -208,8 +215,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                               for (final account in AuthApiMock.demoAccounts)
                                 ActionChip(
                                   label: Text(account['role']!),
-                                  onPressed: () =>
-                                      _fillDemo(account['email']!),
+                                  onPressed: () => _fillDemo(account),
                                 ),
                             ],
                           ),
@@ -257,8 +263,9 @@ class _LoginForm extends StatelessWidget {
               labelText: 'Email',
               prefixIcon: Icon(Icons.email_outlined),
             ),
-            validator: (value) =>
-                value == null || value.trim().isEmpty ? 'Email is required' : null,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Email is required'
+                : null,
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -309,6 +316,8 @@ class _RegisterForm extends StatelessWidget {
     required this.phoneController,
     required this.passwordController,
     required this.confirmController,
+    required this.selectedRole,
+    required this.onRoleChanged,
     required this.errorMessage,
     required this.submitting,
     required this.onSubmit,
@@ -320,6 +329,8 @@ class _RegisterForm extends StatelessWidget {
   final TextEditingController phoneController;
   final TextEditingController passwordController;
   final TextEditingController confirmController;
+  final AppRole? selectedRole;
+  final ValueChanged<AppRole?> onRoleChanged;
   final String? errorMessage;
   final bool submitting;
   final VoidCallback onSubmit;
@@ -331,13 +342,44 @@ class _RegisterForm extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Create a customer account. Staff accounts are created by admin.',
+            'Choose a role — after signup you open that role’s app.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               color: AppColors.muted,
             ),
           ),
           const SizedBox(height: 14),
+          DropdownButtonFormField<AppRole>(
+            value: selectedRole,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Role',
+              hintText: 'Select role',
+              prefixIcon: Icon(Icons.badge_outlined),
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: AppRole.user,
+                child: Text('User (Customer)'),
+              ),
+              DropdownMenuItem(
+                value: AppRole.admin,
+                child: Text('Admin'),
+              ),
+              DropdownMenuItem(
+                value: AppRole.manager,
+                child: Text('Manager'),
+              ),
+              DropdownMenuItem(
+                value: AppRole.rider,
+                child: Text('Rider'),
+              ),
+            ],
+            onChanged: submitting ? null : onRoleChanged,
+            validator: (value) =>
+                value == null ? 'Please select a role' : null,
+          ),
+          const SizedBox(height: 12),
           TextFormField(
             controller: nameController,
             textCapitalization: TextCapitalization.words,
@@ -345,8 +387,9 @@ class _RegisterForm extends StatelessWidget {
               labelText: 'Full name',
               prefixIcon: Icon(Icons.person_outline),
             ),
-            validator: (value) =>
-                value == null || value.trim().isEmpty ? 'Name is required' : null,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Name is required'
+                : null,
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -357,7 +400,9 @@ class _RegisterForm extends StatelessWidget {
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'Email is required';
+              if (value == null || value.trim().isEmpty) {
+                return 'Email is required';
+              }
               if (!value.contains('@')) return 'Enter a valid email';
               return null;
             },
@@ -379,10 +424,13 @@ class _RegisterForm extends StatelessWidget {
               labelText: 'Password',
               prefixIcon: Icon(Icons.lock_outline),
             ),
-            validator: (value) =>
-                value == null || value.length < 6
-                    ? 'Use at least 6 characters'
-                    : null,
+            validator: (value) {
+              if (value == null || value.length < 8) {
+                return 'Use 8–72 characters';
+              }
+              if (value.length > 72) return 'Use 8–72 characters';
+              return null;
+            },
           ),
           const SizedBox(height: 12),
           TextFormField(

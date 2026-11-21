@@ -27,7 +27,7 @@ void main() {
   });
 
   test('cart CRUD and checkout create CONFIRMED order', () {
-    orders.addCartItem(productId: 'p_100', quantity: 2, storeId: 's_001');
+    orders.addCartItem(productId: 'p_100', quantity: 2, storeId: '1');
     final cart = orders.cart();
     expect((cart['items'] as List).length, 1);
     expect(cart['subtotal'], 110.0);
@@ -38,12 +38,11 @@ void main() {
     );
     expect(orders.cart()['subtotal'], 55.0);
 
-    final addresses =
-        auth.listAddresses()['items'] as List<dynamic>;
-    final address = addresses.first as Map<String, dynamic>;
+    final addresses = auth.listAddresses();
+    final address = addresses.first;
 
     final order = orders.placeOrder(
-      addressId: address['id'] as String,
+      addressId: '${address['id']}',
       addressSnapshot: address,
       paymentMethod: 'COD',
       user: auth.me(),
@@ -65,7 +64,7 @@ void main() {
       () => orders.addCartItem(
         productId: 'p_102',
         quantity: 1,
-        storeId: 's_001',
+        storeId: '1',
       ),
       throwsA(isA<Exception>()),
     );

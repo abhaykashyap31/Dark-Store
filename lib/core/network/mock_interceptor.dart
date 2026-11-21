@@ -27,10 +27,12 @@ class MockInterceptor extends QueuedInterceptor {
     try {
       final payload =
           await _resolve(method: method, path: path, options: options);
+      final isNoContent = payload == null &&
+          (method == 'DELETE' || path.endsWith('/auth/logout'));
       handler.resolve(
         Response(
           requestOptions: options,
-          statusCode: 200,
+          statusCode: isNoContent ? 204 : 200,
           data: payload,
         ),
       );
@@ -68,14 +70,18 @@ class MockInterceptor extends QueuedInterceptor {
 
     if (method == 'POST' && path.endsWith('/auth/register')) {
       try {
+        // 201 User only — no session (API_REFERENCE.md).
         return auth.register(
           email: body['email'] as String? ?? '',
           password: body['password'] as String? ?? '',
           name: body['name'] as String? ?? '',
           phone: body['phone'] as String?,
+          role: body['role'] as String?,
         );
       } catch (e) {
-        throw _clientError(options, 400, e);
+        final text = e.toString();
+        final status = text.contains('already') ? 409 : 400;
+        throw _clientError(options, status, e);
       }
     }
 
@@ -86,7 +92,9 @@ class MockInterceptor extends QueuedInterceptor {
           password: body['password'] as String? ?? '',
         );
       } catch (e) {
-        throw _clientError(options, 401, e);
+        final code = _errorCode(e);
+        final status = code == 'ACCOUNT_DISABLED' ? 403 : 401;
+        throw _clientError(options, status, e);
       }
     }
 
@@ -97,14 +105,17 @@ class MockInterceptor extends QueuedInterceptor {
           refreshToken: body['refreshToken'] as String?,
         );
       } catch (e) {
-        throw _clientError(options, 401, e);
+        final code = _errorCode(e);
+        final status = code == 'ACCOUNT_DISABLED' ? 403 : 401;
+        throw _clientError(options, status, e);
       }
     }
 
     if (method == 'POST' && path.endsWith('/auth/logout')) {
       auth.clear();
       order.clearCart();
-      return {'ok': true};
+      // Gateway returns 204 with empty body.
+      return null;
     }
 
     if (method == 'GET' && path.endsWith('/users/me/addresses')) {
@@ -128,17 +139,37 @@ class MockInterceptor extends QueuedInterceptor {
 
     final addressMatch =
         RegExp(r'/users/me/addresses/([^/]+)$').firstMatch(path);
-    if (method == 'PUT' && addressMatch != null) {
+    if (addressMatch != null) {
       try {
-        return auth.updateAddress(
-          addressId: addressMatch.group(1)!,
-          body: body,
-          authorizationHeader: authHeader,
-        );
+        if (method == 'PUT') {
+          return auth.updateAddress(
+            addressId: addressMatch.group(1)!,
+            body: body,
+            authorizationHeader: authHeader,
+          );
+        }
+        if (method == 'DELETE') {
+          auth.deleteAddress(
+            addressId: addressMatch.group(1)!,
+            authorizationHeader: authHeader,
+          );
+          return null;
+        }
       } catch (e) {
         final message = e.toString();
         final status = message.contains('not found') ? 404 : 400;
         throw _clientError(options, status, e);
+      }
+    }
+
+    if (method == 'PUT' && path.endsWith('/users/me')) {
+      try {
+        return auth.updateMe(
+          body: body,
+          authorizationHeader: authHeader,
+        );
+      } catch (e) {
+        throw _clientError(options, 400, e);
       }
     }
 
@@ -151,7 +182,39 @@ class MockInterceptor extends QueuedInterceptor {
     }
 
     if (method == 'GET' && path.endsWith('/stores')) {
-      return catalog.stores();
+      // Bare list (API_REFERENCE); parseObjectList also accepts {items}.
+      return (catalog.stores()['items'] as List<dynamic>);
+    }
+
+    if (method == 'POST' && path.endsWith('/stores')) {
+      try {
+        return admin.createStore(body);
+      } catch (e) {
+        throw _clientError(options, 400, e);
+      }
+    }
+
+    final storePut = RegExp(r'/stores/([^/]+)$').firstMatch(path);
+    if (method == 'PUT' && storePut != null) {
+      try {
+        return admin.updateStore(storePut.group(1)!, body);
+      } catch (e) {
+        throw _clientError(options, 400, e);
+      }
+    }
+
+    if (method == 'GET' && storePut != null) {
+      try {
+        final id = storePut.group(1)!;
+        final items = catalog.stores()['items'] as List<dynamic>;
+        final match = items.cast<Map>().firstWhere(
+              (s) => '${s['id']}' == id,
+              orElse: () => throw Exception('Store not found'),
+            );
+        return Map<String, dynamic>.from(match);
+      } catch (e) {
+        throw _clientError(options, 404, e);
+      }
     }
 
     if (method == 'GET' && path.endsWith('/categories')) {
@@ -179,7 +242,7 @@ class MockInterceptor extends QueuedInterceptor {
     }
 
     if (method == 'GET' && path.endsWith('/inventory/alerts')) {
-      final storeId = options.queryParameters['storeId'] ?? '';
+      final storeId = _asId(options.queryParameters['storeId']);
       try {
         return catalog.inventoryAlerts(storeId: storeId);
       } catch (e) {
@@ -191,9 +254,9 @@ class MockInterceptor extends QueuedInterceptor {
     if (method == 'PUT' && inventoryMatch != null) {
       try {
         return catalog.updateInventory(
-          storeId: body['storeId'] as String? ??
-              options.queryParameters['storeId'] ??
-              '',
+          storeId: _asId(
+            body['storeId'] ?? options.queryParameters['storeId'],
+          ),
           productId: inventoryMatch.group(1)!,
           price: (body['price'] as num?)?.toDouble(),
           stockQty: (body['stockQty'] as num?)?.toInt(),
@@ -206,15 +269,15 @@ class MockInterceptor extends QueuedInterceptor {
 
     if (method == 'GET' && path.endsWith('/inventory/available-products')) {
       return catalog.availableProductsForStore(
-        storeId: options.queryParameters['storeId'] ?? '',
+        storeId: _asId(options.queryParameters['storeId']),
       );
     }
 
     if (method == 'POST' && path.endsWith('/inventory')) {
       try {
         return catalog.addInventoryItem(
-          storeId: body['storeId'] as String? ?? '',
-          productId: body['productId'] as String?,
+          storeId: _asId(body['storeId']),
+          productId: body['productId']?.toString(),
           name: body['name'] as String?,
           sku: body['sku'] as String?,
           price: (body['price'] as num?)?.toDouble(),
@@ -228,20 +291,20 @@ class MockInterceptor extends QueuedInterceptor {
 
     if (method == 'GET' && path.endsWith('/inventory')) {
       return catalog.inventory(
-        storeId: options.queryParameters['storeId'],
+        storeId: _asId(options.queryParameters['storeId']),
       );
     }
 
     if (method == 'GET' && path.endsWith('/cart')) {
-      return order.cart(storeId: options.queryParameters['storeId']);
+      return order.cart(storeId: _asId(options.queryParameters['storeId']));
     }
 
     if (method == 'POST' && path.endsWith('/cart/items')) {
       try {
         return order.addCartItem(
-          productId: body['productId'] as String? ?? '',
+          productId: '${body['productId'] ?? ''}',
           quantity: (body['quantity'] as num?)?.toInt() ?? 1,
-          storeId: body['storeId'] as String? ?? '',
+          storeId: _asId(body['storeId']),
         );
       } catch (e) {
         throw _clientError(options, 400, e);
@@ -278,13 +341,10 @@ class MockInterceptor extends QueuedInterceptor {
     if (method == 'POST' && path.endsWith('/orders')) {
       try {
         final user = auth.me(authorizationHeader: authHeader);
-        final addressId = body['addressId'] as String? ?? '';
+        final addressId = '${body['addressId'] ?? ''}';
         final addresses =
-            auth.listAddresses(authorizationHeader: authHeader)['items']
-                as List<dynamic>;
-        final match = addresses
-            .cast<Map<String, dynamic>>()
-            .where((a) => a['id'] == addressId);
+            auth.listAddresses(authorizationHeader: authHeader);
+        final match = addresses.where((a) => '${a['id']}' == addressId);
         if (match.isEmpty) {
           throw Exception('Delivery address is required');
         }
@@ -318,12 +378,12 @@ class MockInterceptor extends QueuedInterceptor {
     if (method == 'GET' && path.endsWith('/manager/orders')) {
       try {
         final me = auth.me(authorizationHeader: authHeader);
-        final storeId = options.queryParameters['storeId'] ??
-            me['storeId'] as String? ??
-            '';
+        final storeId = _asId(
+          options.queryParameters['storeId'] ?? me['storeId'],
+        );
         return order.managerOrders(
           storeId: storeId,
-          status: options.queryParameters['status'],
+          status: options.queryParameters['status']?.toString(),
         );
       } catch (e) {
         throw _clientError(options, 400, e);
@@ -334,8 +394,8 @@ class MockInterceptor extends QueuedInterceptor {
       try {
         final me = auth.me(authorizationHeader: authHeader);
         return order.riderOrders(
-          storeId: me['storeId'] as String? ?? '',
-          riderId: me['id'] as String? ?? '',
+          storeId: _asId(me['storeId']),
+          riderId: _asId(me['id']),
         );
       } catch (e) {
         throw _clientError(options, 400, e);
@@ -351,11 +411,10 @@ class MockInterceptor extends QueuedInterceptor {
     if (method == 'PATCH' && managerStatusMatch != null) {
       try {
         final me = auth.me(authorizationHeader: authHeader);
-        final storeId =
-            body['storeId'] as String? ?? me['storeId'] as String? ?? '';
+        final storeId = _asId(body['storeId'] ?? me['storeId']);
         return order.patchManagerStatus(
           orderId: managerStatusMatch.group(1)!,
-          toStatus: body['status'] as String? ?? '',
+          toStatus: '${body['status'] ?? ''}',
           storeId: storeId,
         );
       } catch (e) {
@@ -368,11 +427,10 @@ class MockInterceptor extends QueuedInterceptor {
     if (method == 'POST' && assignMatch != null) {
       try {
         final me = auth.me(authorizationHeader: authHeader);
-        final storeId =
-            body['storeId'] as String? ?? me['storeId'] as String? ?? '';
-        final riderId = body['riderId'] as String? ?? '';
+        final storeId = _asId(body['storeId'] ?? me['storeId']);
+        final riderId = _asId(body['riderId']);
         final riders = auth.listRidersForStore(storeId);
-        final rider = riders.where((r) => r['id'] == riderId);
+        final rider = riders.where((r) => '${r['id']}' == riderId);
         if (rider.isEmpty) {
           throw Exception('Rider not found for this store');
         }
@@ -380,7 +438,7 @@ class MockInterceptor extends QueuedInterceptor {
           orderId: assignMatch.group(1)!,
           storeId: storeId,
           riderId: riderId,
-          riderName: rider.first['name'] as String? ?? 'Rider',
+          riderName: '${rider.first['name'] ?? 'Rider'}',
         );
       } catch (e) {
         throw _clientError(options, 400, e);
@@ -394,9 +452,9 @@ class MockInterceptor extends QueuedInterceptor {
         final me = auth.me(authorizationHeader: authHeader);
         return order.patchRiderStatus(
           orderId: riderStatusMatch.group(1)!,
-          toStatus: body['status'] as String? ?? '',
-          storeId: me['storeId'] as String? ?? '',
-          riderId: me['id'] as String? ?? '',
+          toStatus: '${body['status'] ?? ''}',
+          storeId: _asId(me['storeId']),
+          riderId: _asId(me['id']),
         );
       } catch (e) {
         throw _clientError(options, 400, e);
@@ -412,50 +470,24 @@ class MockInterceptor extends QueuedInterceptor {
       }
     }
 
-    if (path.contains('/admin/stores')) {
-      try {
-        if (method == 'GET' && path.endsWith('/admin/stores')) {
-          return admin.listStores();
-        }
-        if (method == 'POST' && path.endsWith('/admin/stores')) {
-          return admin.createStore(body);
-        }
-        final storeActive =
-            RegExp(r'/admin/stores/([^/]+)/active$').firstMatch(path);
-        if (method == 'PATCH' && storeActive != null) {
-          return admin.setStoreActive(
-            storeActive.group(1)!,
-            body['active'] == true,
-          );
-        }
-        final storeMatch = RegExp(r'/admin/stores/([^/]+)$').firstMatch(path);
-        if (method == 'PUT' && storeMatch != null) {
-          return admin.updateStore(storeMatch.group(1)!, body);
-        }
-      } catch (e) {
-        throw _clientError(options, 400, e);
-      }
-    }
-
     if (path.contains('/admin/users')) {
       try {
         if (method == 'GET' && path.endsWith('/admin/users')) {
-          return admin.listUsers(
-            role: options.queryParameters['role'],
-            active: options.queryParameters['active'] == null
-                ? null
-                : options.queryParameters['active'] == 'true',
+          return auth.listUsersForAdmin(
+            role: options.queryParameters['role']?.toString(),
           );
         }
         if (method == 'POST' && path.endsWith('/admin/users')) {
           return admin.createUser(body);
         }
-        final userActive =
-            RegExp(r'/admin/users/([^/]+)/active$').firstMatch(path);
-        if (method == 'PATCH' && userActive != null) {
-          return admin.setUserActive(
-            userActive.group(1)!,
-            body['active'] == true,
+        final userStatus =
+            RegExp(r'/admin/users/([^/]+)/status$').firstMatch(path);
+        if (method == 'PATCH' && userStatus != null) {
+          final me = auth.me(authorizationHeader: authHeader);
+          return auth.setUserStatus(
+            userId: userStatus.group(1)!,
+            status: '${body['status'] ?? ''}',
+            actorUserId: '${me['id']}',
           );
         }
       } catch (e) {
@@ -507,6 +539,11 @@ class MockInterceptor extends QueuedInterceptor {
   }
 
   DioException _clientError(RequestOptions options, int status, Object e) {
+    final raw = e.toString().replaceFirst('Exception: ', '');
+    final code = _errorCode(e);
+    final message = code != null && raw.contains('::')
+        ? raw.split('::').skip(1).join('::')
+        : raw;
     return DioException(
       requestOptions: options,
       type: DioExceptionType.badResponse,
@@ -514,10 +551,31 @@ class MockInterceptor extends QueuedInterceptor {
         requestOptions: options,
         statusCode: status,
         data: {
-          'message': e.toString().replaceFirst('Exception: ', ''),
+          'status': status,
+          if (code != null) 'code': code,
+          'message': message,
         },
       ),
     );
+  }
+
+  String? _errorCode(Object e) {
+    final raw = e.toString().replaceFirst('Exception: ', '');
+    if (raw.contains('::')) {
+      return raw.split('::').first;
+    }
+    if (raw.toLowerCase().contains('already')) {
+      return 'EMAIL_ALREADY_EXISTS';
+    }
+    return null;
+  }
+
+  /// Gateway ids are ints; mocks historically used strings — normalize both.
+  String _asId(Object? value) {
+    if (value == null) return '';
+    final text = value.toString().trim();
+    if (text.isEmpty || text == 'null') return '';
+    return text;
   }
 
   Map<String, dynamic> _asMap(dynamic data) {

@@ -9,6 +9,7 @@ class AppUser {
     required this.active,
     this.storeId,
     this.phone,
+    this.status = 'ACTIVE',
   });
 
   final String id;
@@ -17,10 +18,28 @@ class AppUser {
   final AppRole role;
   final String? storeId;
   final String? phone;
+
+  /// Gateway `status`: `ACTIVE` | `DISABLED`.
+  final String status;
+
+  /// Convenience for UI; mirrors `status == ACTIVE`.
   final bool active;
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
-    final roleRaw = '${json['role'] ?? 'USER'}';
+    final roleRaw = '${json['role'] ?? 'CUSTOMER'}';
+    final statusRaw = '${json['status'] ?? ''}'.toUpperCase();
+    final legacyActive = json['active'];
+    final active = statusRaw == 'DISABLED'
+        ? false
+        : statusRaw == 'ACTIVE'
+            ? true
+            : legacyActive is bool
+                ? legacyActive
+                : true;
+    final status = statusRaw.isNotEmpty
+        ? statusRaw
+        : (active ? 'ACTIVE' : 'DISABLED');
+
     return AppUser(
       id: '${json['id'] ?? ''}',
       email: '${json['email'] ?? ''}',
@@ -28,18 +47,19 @@ class AppUser {
       role: AppRole.fromApi(roleRaw),
       storeId: json['storeId']?.toString() ?? json['store_id']?.toString(),
       phone: json['phone']?.toString(),
-      active: json['active'] as bool? ?? true,
+      status: status,
+      active: active,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
+        'id': int.tryParse(id) ?? id,
         'email': email,
         'name': name,
         'role': role.apiValue,
-        'storeId': storeId,
+        'storeId': storeId == null ? null : (int.tryParse(storeId!) ?? storeId),
         'phone': phone,
-        'active': active,
+        'status': status,
       };
 
   AppUser copyWith({
@@ -49,8 +69,16 @@ class AppUser {
     AppRole? role,
     String? storeId,
     String? phone,
+    String? status,
     bool? active,
   }) {
+    final nextStatus = status ?? this.status;
+    final nextActive = active ??
+        (nextStatus == 'DISABLED'
+            ? false
+            : nextStatus == 'ACTIVE'
+                ? true
+                : this.active);
     return AppUser(
       id: id ?? this.id,
       email: email ?? this.email,
@@ -58,7 +86,8 @@ class AppUser {
       role: role ?? this.role,
       storeId: storeId ?? this.storeId,
       phone: phone ?? this.phone,
-      active: active ?? this.active,
+      status: nextStatus,
+      active: nextActive,
     );
   }
 }
@@ -78,10 +107,12 @@ class AuthSession {
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     return AuthSession(
-      accessToken: json['accessToken'] as String,
-      refreshToken: json['refreshToken'] as String,
-      expiresIn: json['expiresIn'] as int? ?? 900,
-      user: AppUser.fromJson(json['user'] as Map<String, dynamic>),
+      accessToken: '${json['accessToken'] ?? ''}',
+      refreshToken: '${json['refreshToken'] ?? ''}',
+      expiresIn: (json['expiresIn'] as num?)?.toInt() ?? 900,
+      user: AppUser.fromJson(
+        Map<String, dynamic>.from(json['user'] as Map? ?? const {}),
+      ),
     );
   }
 }

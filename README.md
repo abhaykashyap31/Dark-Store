@@ -1,44 +1,41 @@
 # iDarkStore (Flutter)
 
-Role-based quick-commerce web app for **USER**, **ADMIN**, **MANAGER**, and **RIDER**.
+Role-based quick-commerce **web** app for **CUSTOMER**, **ADMIN**, **MANAGER**, and **RIDER**.
 
+- API contract (Auth / Users / Stores / Admin): [`API_REFERENCE.md`](./API_REFERENCE.md)
+- Backend wiring: [`BACKEND_INTEGRATION.md`](./BACKEND_INTEGRATION.md)
 - Architecture: [`architecture.md`](./architecture.md)
-- Diagrams: [`diagrams-explained.md`](./diagrams-explained.md)
-- **Backend integration:** [`BACKEND_INTEGRATION.md`](./BACKEND_INTEGRATION.md)
 
-## Current phase: Phase 8 prep (Gateway placeholders)
-
-Phases 0–7 UI/mocks are in place. Endpoint constants, Dio config, and the integration checklist live in [`BACKEND_INTEGRATION.md`](./BACKEND_INTEGRATION.md). Flip to the live Gateway with the dart-defines below when services are ready.
-
-### Run
+## Run (web)
 
 ```bash
 flutter pub get
-flutter run
+flutter run -d chrome
 ```
 
 Mock APIs are **on by default** (`USE_MOCK_APIS=true`).
 
-### Demo logins (password: `password`)
-
-| Email | Role |
-|-------|------|
-| `user@darkstore.com` | USER |
-| `admin@darkstore.com` | ADMIN |
-| `manager@darkstore.com` | MANAGER (`storeId: s_001`) |
-| `rider@darkstore.com` | RIDER (`storeId: s_001`) |
-| `inactive@darkstore.com` | Blocked (`active: false`) |
-
-Customers can also use **Create account** on the login screen (USER self-register only).
-
-### Dart defines (Gateway)
+### Live Gateway (web / desktop)
 
 ```bash
-# Live Gateway
-flutter run \
+flutter run -d chrome \
   --dart-define=USE_MOCK_APIS=false \
-  --dart-define=API_BASE_URL=https://your-gateway \
+  --dart-define=API_BASE_URL=http://localhost:8080/api/v1 \
   --dart-define=ENABLE_API_LOGS=true
 ```
 
-Path constants: `lib/core/network/api_endpoints.dart`. Full contract and checklist: [`BACKEND_INTEGRATION.md`](./BACKEND_INTEGRATION.md).
+Base URL must include `/api/v1`. Never call ports 8081–8083 from the app.
+
+### Demo logins
+
+| Email | Password | Role |
+|-------|----------|------|
+| `user@darkstore.com` | `password` | CUSTOMER |
+| `admin@darkstore.com` | `Admin@123` | ADMIN |
+| `manager@darkstore.com` | `password` | MANAGER (`storeId: 1`) |
+| `rider@darkstore.com` | `password` | RIDER (`storeId: 1`) |
+| `inactive@darkstore.com` | `password` | DISABLED |
+
+**Register** creates a **CUSTOMER** only, then signs in. Manager/Rider accounts are created by Admin (`POST /admin/users`).
+
+Path constants: `lib/core/network/api_endpoints.dart`.

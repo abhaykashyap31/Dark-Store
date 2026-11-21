@@ -6,8 +6,8 @@ void main() {
   final catalog = CatalogApiMock();
 
   test('products are scoped by store stock and price', () {
-    final s1 = catalog.products(storeId: 's_001');
-    final s2 = catalog.products(storeId: 's_002');
+    final s1 = catalog.products(storeId: '1');
+    final s2 = catalog.products(storeId: '2');
 
     final milkS1 = (s1['items'] as List)
         .cast<Map<String, dynamic>>()
@@ -29,11 +29,11 @@ void main() {
   });
 
   test('category filter and product detail work', () {
-    final dairy = catalog.products(storeId: 's_001', categoryId: 'c_01');
+    final dairy = catalog.products(storeId: '1', categoryId: 'c_01');
     final items = (dairy['items'] as List).cast<Map<String, dynamic>>();
     expect(items.every((p) => p['categoryId'] == 'c_01'), isTrue);
 
-    final detail = catalog.productById(id: 'p_100', storeId: 's_001');
+    final detail = catalog.productById(id: 'p_100', storeId: '1');
     expect(detail['name'], 'Farm Fresh Milk');
     expect(detail['inStock'], isTrue);
   });

@@ -28,17 +28,25 @@ class CatalogApiMock {
 
   static const _seedStores = <Map<String, dynamic>>[
     {
-      'id': 's_001',
-      'name': 'Koramangala Darkstore',
+      'id': 1,
       'code': 'BLR-KOR',
+      'name': 'Koramangala Darkstore',
+      'address': '80 Feet Road, Koramangala',
       'city': 'Bengaluru',
+      'phone': '08040000001',
+      'latitude': 12.9352,
+      'longitude': 77.6245,
       'active': true,
     },
     {
-      'id': 's_002',
-      'name': 'Indiranagar Darkstore',
+      'id': 2,
       'code': 'BLR-IND',
+      'name': 'Indiranagar Darkstore',
+      'address': '100 Feet Road, Indiranagar',
       'city': 'Bengaluru',
+      'phone': '08040000002',
+      'latitude': 12.9784,
+      'longitude': 77.6408,
       'active': true,
     },
   ];
@@ -155,7 +163,7 @@ class CatalogApiMock {
 
   void upsertStore(Map<String, dynamic> store) {
     final id = store['id'] as String;
-    final index = _stores.indexWhere((s) => s['id'] == id);
+    final index = _stores.indexWhere((s) => '${s['id']}' == '$id');
     final copy = Map<String, dynamic>.from(store);
     if (index >= 0) {
       _stores[index] = copy;
@@ -193,7 +201,7 @@ class CatalogApiMock {
 
   /// Per-store stock + price overrides (seed).
   static const _seedInventory = <String, Map<String, Map<String, dynamic>>>{
-    's_001': {
+    '1': {
       'p_100': {'price': 55.0, 'stockQty': 42, 'lowStockThreshold': 10},
       'p_101': {'price': 45.0, 'stockQty': 18, 'lowStockThreshold': 8},
       'p_102': {'price': 20.0, 'stockQty': 0, 'lowStockThreshold': 10},
@@ -205,7 +213,7 @@ class CatalogApiMock {
       'p_108': {'price': 28.0, 'stockQty': 50, 'lowStockThreshold': 10},
       // p_109 left out so Manager can demo "Add product" into stock.
     },
-    's_002': {
+    '2': {
       'p_100': {'price': 58.0, 'stockQty': 10, 'lowStockThreshold': 10},
       'p_101': {'price': 48.0, 'stockQty': 0, 'lowStockThreshold': 8},
       'p_102': {'price': 18.0, 'stockQty': 60, 'lowStockThreshold': 10},
@@ -235,7 +243,7 @@ class CatalogApiMock {
     String? categoryId,
     String? query,
   }) {
-    final store = storeId ?? 's_001';
+    final store = storeId ?? '1';
     final inventory = _inventoryByStore[store] ?? const {};
     var items = _catalog.map((product) {
       final stock = inventory[product['id'] as String];
@@ -295,7 +303,7 @@ class CatalogApiMock {
   }
 
   Map<String, dynamic> inventory({String? storeId}) {
-    final store = storeId ?? 's_001';
+    final store = storeId ?? '1';
     final inventory = _inventoryByStore[store] ?? {};
     final items = <Map<String, dynamic>>[];
     for (final product in _catalog) {

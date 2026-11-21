@@ -2,8 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_endpoints.dart';
-import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/network/dio_error_mapper.dart';
+import '../../../core/network/api_response.dart';
 import '../../../shared/models/category.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/store.dart';
@@ -15,28 +16,22 @@ class CatalogRepository {
 
   Future<List<Store>> fetchStores() async {
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>(ApiEndpoints.stores);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items
+      final response = await _dio.get<dynamic>(ApiEndpoints.stores);
+      return parseObjectList(response.data)
           .map(Store.fromJson)
           .where((store) => store.active)
           .toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load stores');
+      throw mapDioError(e, fallback: 'Failed to load stores');
     }
   }
 
   Future<List<Category>> fetchCategories() async {
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>(ApiEndpoints.categories);
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(Category.fromJson).toList();
+      final response = await _dio.get<dynamic>(ApiEndpoints.categories);
+      return parseObjectList(response.data).map(Category.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load categories');
+      throw mapDioError(e, fallback: 'Failed to load categories');
     }
   }
 
@@ -46,19 +41,18 @@ class CatalogRepository {
     String? query,
   }) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
+      final response = await _dio.get<dynamic>(
         ApiEndpoints.products,
         queryParameters: {
           'storeId': storeId,
-          if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
+          if (categoryId != null && categoryId.isNotEmpty)
+            'categoryId': categoryId,
           if (query != null && query.isNotEmpty) 'q': query,
         },
       );
-      final items = (response.data?['items'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      return items.map(Product.fromJson).toList();
+      return parseObjectList(response.data).map(Product.fromJson).toList();
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load products');
+      throw mapDioError(e, fallback: 'Failed to load products');
     }
   }
 
@@ -73,19 +67,8 @@ class CatalogRepository {
       );
       return Product.fromJson(response.data!);
     } on DioException catch (e) {
-      throw _error(e, 'Failed to load product');
+      throw mapDioError(e, fallback: 'Failed to load product');
     }
-  }
-
-  ApiException _error(DioException e, String fallback) {
-    final data = e.response?.data;
-    final message = data is Map && data['message'] is String
-        ? data['message'] as String
-        : e.message;
-    return ApiException(
-      message: message ?? fallback,
-      statusCode: e.response?.statusCode,
-    );
   }
 }
 

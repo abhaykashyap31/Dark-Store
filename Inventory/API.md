@@ -241,4 +241,6 @@ Validation response:
 
 ## Postman collection
 
-Import [Inventory.postman_collection.json](./postman/Inventory.postman_collection.json) into Postman. Run the entire collection in sequence; it generates fresh IDs, exercises catalog CRUD and inventory/reservation flows, and stores generated IDs in collection variables. Set `baseUrl` to the service URL if it is not `http://localhost:8082`. The inventory fixture is intentionally left in place because stock movements/reservations are audit history; use a disposable database when running repeated checks.
+Import [Inventory.postman_collection.json](./postman/Inventory.postman_collection.json) into Postman. Run the entire collection in sequence; it generates fresh IDs, exercises catalog CRUD and inventory/reservation flows, and stores generated IDs in collection variables. Set `baseUrl` to the service URL if it is not `http://localhost:8082`. 
+
+The inventory fixture is intentionally left in place because stock movements/reservations are audit history; use a disposable database when running repeated checks.

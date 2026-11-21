@@ -1,0 +1,291 @@
+{
+  "info": {
+    "_postman_id": "d0c20c2c-cfc1-4ad0-9cb1-38f0e08b3955",
+    "name": "Dark Store - Inventory Service",
+    "description": "End-to-end CRUD, stock, validation, and reservation checks for the Inventory Spring Boot service. Run requests in order. Change baseUrl if the service is not on localhost:8082.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8082" },
+    { "key": "categoryId", "value": "" },
+    { "key": "productId", "value": "" },
+    { "key": "catalogProductId", "value": "" },
+    { "key": "runId", "value": "" },
+    { "key": "storeId", "value": "" },
+    { "key": "releaseOrderId", "value": "" },
+    { "key": "confirmOrderId", "value": "" },
+    { "key": "internalReleaseOrderId", "value": "" },
+    { "key": "internalConfirmOrderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Catalog CRUD",
+      "item": [
+        {
+          "name": "List categories",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/categories" },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runId', pm.variables.replaceIn('{{$guid}}'));",
+                  "for (const key of ['storeId', 'releaseOrderId', 'confirmOrderId', 'internalReleaseOrderId', 'internalConfirmOrderId']) {",
+                  "  pm.collectionVariables.set(key, pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('returns categories', () => pm.response.to.have.status(200));", "pm.test('response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }
+          ]
+        },
+        {
+          "name": "Create category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Catalog {{runId}}\",\n  \"description\": \"Temporary category for collection CRUD checks\",\n  \"parentId\": null,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/categories"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('category created', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.collectionVariables.set('categoryId', body.id);", "pm.test('slug is generated', () => pm.expect(body.slug).to.eql('postman-catalog-' + pm.collectionVariables.get('runId').toLowerCase()));"] } }]
+        },
+        {
+          "name": "Get category",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/categories/{{categoryId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('category can be read', () => pm.response.to.have.status(200));", "pm.test('id matches created category', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('categoryId')));"] } }]
+        },
+        {
+          "name": "Update category",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Updated {{runId}}\",\n  \"description\": \"Updated by the collection\",\n  \"parentId\": null,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/categories/{{categoryId}}"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('category updated', () => pm.response.to.have.status(200));", "pm.test('updated name is returned', () => pm.expect(pm.response.json().name).to.eql('Postman Updated ' + pm.collectionVariables.get('runId')));"] } }]
+        },
+        {
+          "name": "Create product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Sample Product {{runId}}\",\n  \"description\": \"Temporary product for catalog CRUD checks\",\n  \"sku\": \"POSTMAN-CATALOG-{{runId}}\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"imageUrl\": \"https://example.test/product.png\",\n  \"basePrice\": 2.50,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/products"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('product created', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.collectionVariables.set('catalogProductId', body.id);", "pm.test('base price is returned', () => pm.expect(Number(body.basePrice)).to.eql(2.5));"] } }]
+        },
+        {
+          "name": "List products",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('returns products', () => pm.response.to.have.status(200));", "pm.test('response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }]
+        },
+        {
+          "name": "Get product",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/{{catalogProductId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('product can be read', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "Update product",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Sample Product Updated {{runId}}\",\n  \"description\": \"Updated by the collection\",\n  \"sku\": \"POSTMAN-CATALOG-{{runId}}\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"imageUrl\": null,\n  \"basePrice\": 3.25,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/products/{{catalogProductId}}"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('product updated', () => pm.response.to.have.status(200));", "pm.test('updated name is returned', () => pm.expect(pm.response.json().name).to.eql('Postman Sample Product Updated ' + pm.collectionVariables.get('runId')));"] } }]
+        },
+        {
+          "name": "Cannot delete category with products",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/categories/{{categoryId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('referenced category is protected', () => pm.response.to.have.status(409));"] } }]
+        },
+        {
+          "name": "Delete product",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/products/{{catalogProductId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('unreferenced product deleted', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Delete category",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/categories/{{categoryId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('unreferenced category deleted', () => pm.response.to.have.status(204));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Inventory and reservations",
+      "item": [
+        {
+          "name": "Create inventory category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Inventory {{runId}}\",\n  \"description\": \"Category for inventory requests\",\n  \"parentId\": null,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/categories"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('inventory category created', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('categoryId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Create inventory product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Inventory Product {{runId}}\",\n  \"description\": \"Product used by stock and reservation checks\",\n  \"sku\": \"POSTMAN-INVENTORY-{{runId}}\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"imageUrl\": null,\n  \"basePrice\": 5.00,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/products"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('inventory product created', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('productId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Upsert store stock",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productId\": \"{{productId}}\",\n  \"price\": 4.50,\n  \"onHand\": 10,\n  \"lowStockThreshold\": 3\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('stock upserted', () => pm.response.to.have.status(200));", "pm.test('on-hand quantity saved', () => pm.expect(pm.response.json().onHand).to.eql(10));"] } }]
+        },
+        {
+          "name": "Cannot delete product with stock",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/products/{{productId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('product with stock history is protected', () => pm.response.to.have.status(409));"] } }]
+        },
+        {
+          "name": "List store stock",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventory?storeId={{storeId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('store stock listed', () => pm.response.to.have.status(200));", "pm.test('stock response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }]
+        },
+        {
+          "name": "List all stock",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventory" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('all stock listed', () => pm.response.to.have.status(200));", "pm.test('response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }]
+        },
+        {
+          "name": "Get stock row",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventory/{{storeId}}/{{productId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('stock row found', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "Adjust stock below threshold",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productId\": \"{{productId}}\",\n  \"quantityChange\": -8,\n  \"reason\": \"POSTMAN_TEST_ADJUSTMENT\",\n  \"referenceId\": null\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory/adjust"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('stock adjusted', () => pm.response.to.have.status(200));", "pm.test('on-hand quantity updated', () => pm.expect(pm.response.json().onHand).to.eql(2));"] } }]
+        },
+        {
+          "name": "List low stock",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventory/low-stock?storeId={{storeId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('low stock listed', () => pm.response.to.have.status(200));", "pm.test('adjusted product is low', () => pm.expect(pm.response.json().some(item => item.productId === pm.collectionVariables.get('productId'))).to.eql(true));"] } }]
+        },
+        {
+          "name": "List stock movements",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventory/movements?storeId={{storeId}}&productId={{productId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('movements listed', () => pm.response.to.have.status(200));", "pm.test('response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }]
+        },
+        {
+          "name": "Validate products (internal)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productIds\": [\"{{productId}}\"]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/internal/products/validate"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('validation succeeds', () => pm.response.to.have.status(200));", "pm.test('available quantity and price returned', () => { const item = pm.response.json().items[0]; pm.expect(item.available).to.eql(2); pm.expect(Number(item.price)).to.eql(4.5); });"] } }]
+        },
+        {
+          "name": "Reserve stock (public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{releaseOrderId}}\",\n  \"storeId\": \"{{storeId}}\",\n  \"items\": [{ \"productId\": \"{{productId}}\", \"quantity\": 1 }]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory/reserve"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('public reserve succeeds', () => pm.response.to.have.status(201));", "pm.test('item is reserved', () => pm.expect(pm.response.json().items[0].status).to.eql('RESERVED'));"] } }]
+        },
+        {
+          "name": "Repeat reserve (idempotency)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{releaseOrderId}}\",\n  \"storeId\": \"{{storeId}}\",\n  \"items\": [{ \"productId\": \"{{productId}}\", \"quantity\": 1 }]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory/reserve"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('repeated reserve is idempotent', () => pm.response.to.have.status(201));", "pm.test('only one unit remains reserved', () => pm.expect(pm.response.json().items[0].quantity).to.eql(1));"] } }]
+        },
+        {
+          "name": "Release stock (public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"orderId\": \"{{releaseOrderId}}\" }", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory/release"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('public release succeeds', () => pm.response.to.have.status(200));", "pm.test('reservation released', () => pm.expect(pm.response.json().status).to.eql('RELEASED'));"] } }]
+        },
+        {
+          "name": "Reserve for confirmation (public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{confirmOrderId}}\",\n  \"storeId\": \"{{storeId}}\",\n  \"items\": [{ \"productId\": \"{{productId}}\", \"quantity\": 1 }]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory/reserve"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('reservation for confirm created', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "Confirm stock (public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"orderId\": \"{{confirmOrderId}}\" }", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/inventory/confirm"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('public confirmation succeeds', () => pm.response.to.have.status(200));", "pm.test('reservation confirmed', () => pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"] } }]
+        },
+        {
+          "name": "Reserve stock (internal)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{internalReleaseOrderId}}\",\n  \"storeId\": \"{{storeId}}\",\n  \"items\": [{ \"productId\": \"{{productId}}\", \"quantity\": 1 }]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/internal/inventory/reserve"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('internal reserve succeeds', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "Release stock (internal)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"orderId\": \"{{internalReleaseOrderId}}\" }", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/internal/inventory/release"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('internal release succeeds', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "Reserve stock for internal confirm",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{internalConfirmOrderId}}\",\n  \"storeId\": \"{{storeId}}\",\n  \"items\": [{ \"productId\": \"{{productId}}\", \"quantity\": 1 }]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/internal/inventory/reserve"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('internal reservation for confirm created', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "Confirm stock (internal)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"orderId\": \"{{internalConfirmOrderId}}\" }", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/internal/inventory/confirm"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('internal confirmation succeeds', () => pm.response.to.have.status(200));"] } }]
+        }
+      ]
+    }
+  ]
+}

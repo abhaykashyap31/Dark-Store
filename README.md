@@ -71,3 +71,20 @@ This diagram shows normal fulfillment, cancellation paths, reservation failure, 
 ![Dark Store order placement sequence](Order-placement-flow.drawio.png)
 
 This sequence starts when the Flutter app sends `POST /orders` through the gateway. The order service calculates prices, validates inventory, saves the order, reserves stock, and returns the final status and timeline. The app refreshes order status every 10-15 seconds; a manager or inventory confirmation action advances or confirms the relevant workflow.
+
+## Inventory microservice implementation
+
+The Spring Boot inventory microservice is located in [Inventory](/home/abhay/Pictures/Dark-Store/Inventory).
+It owns product and category data, store-specific prices, stock on hand and reservations,
+stock movements, and low-stock reporting. It exposes the diagram's public inventory routes plus
+the internal order-service routes under `/internal`.
+
+```bash
+cd Inventory
+mvn test
+mvn spring-boot:run
+```
+
+The service listens on port `8082` by default and uses H2 locally unless
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`
+are supplied for PostgreSQL.

@@ -39,6 +39,15 @@ spring:
             - Path=/api/v1/products/**,/api/v1/categories/**,/api/v1/inventory/**
           filters:
             - JwtAuth
+            - StripPrefix=2
+
+        - id: inventory-internal
+          uri: ${INVENTORY_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/internal/products/validate,/api/v1/internal/inventory/**
+          filters:
+            - JwtAuth
+            - StripPrefix=2
 
         - id: orders
           uri: ${ORDER_SERVICE_URL:http://localhost:8083}

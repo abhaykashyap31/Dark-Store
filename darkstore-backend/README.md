@@ -1,6 +1,6 @@
 # Dark Store Backend: API Gateway + Auth Service
 
-Spring Boot 3.3, Java 17+, PostgreSQL, Maven.
+Spring Boot 3.3, Java 17+ (Inventory requires Java 21), PostgreSQL, Maven.
 
 ## Ports
 
@@ -28,13 +28,14 @@ The web page is a single file: `api-gateway/src/main/resources/static/admin/logi
 
 ## Run
 
-1. In PostgreSQL create the database once: `CREATE DATABASE auth_db;`
-2. Put your PostgreSQL password in `auth-service/src/main/resources/application.yml` (or env `DB_PASSWORD`). The user defaults to `postgres` (env `DB_USERNAME`).
+1. In PostgreSQL create the databases once: `CREATE DATABASE auth_db;` and `CREATE DATABASE inventory_db;`.
+2. Set `DB_PASSWORD` for Auth Service and `SPRING_DATASOURCE_PASSWORD` for Inventory Service to your PostgreSQL password. Both usernames default to `postgres`.
 3. Start the services, auth first:
 
    ```
    cd auth-service && mvn spring-boot:run
-   cd api-gateway  && mvn spring-boot:run      # in a second terminal
+   cd Inventory    && mvn spring-boot:run      # in a second terminal
+   cd api-gateway  && mvn spring-boot:run      # in a third terminal
    ```
 
    or run `AuthServiceApplication`, then `GatewayApplication` from your IDE.
@@ -54,7 +55,7 @@ The web page is a single file: `api-gateway/src/main/resources/static/admin/logi
 1. Flutter calls the gateway.
 2. Routes marked `JwtAuth` need a valid token. The gateway checks it, removes any `X-User-*` headers sent by the client, and adds
    `X-User-Id`, `X-User-Role` and `X-Store-Id` (managers and riders) to the request.
-3. The service reads those headers. Role rules are checked in the service with `@PreAuthorize`.
+3. Auth Service and Inventory read those headers and check role rules with `@PreAuthorize`.
 
 Gateway routes:
 
@@ -63,11 +64,12 @@ Gateway routes:
 | /api/v1/auth/** | 8081 Auth | no |
 | /api/v1/users, /stores, /admin | 8081 Auth | yes |
 | /api/v1/products, /categories, /inventory | 8082 Inventory | yes |
+| /api/v1/internal/products/validate, /api/v1/internal/inventory/** | 8082 Inventory | yes (MANAGER or ADMIN) |
 | /api/v1/cart, /orders, /manager, /rider | 8083 Order | yes |
 
-The gateway does not rewrite paths, so every service must use controllers under `/api/v1/...`.
+The inventory route strips `/api/v1` before forwarding because its controllers use `/products`, `/categories`, and `/inventory`. Auth Service receives its `/api/v1/...` paths unchanged.
 
-Important: services trust the `X-User-*` headers, so ports 8081 to 8083 must not be reachable from outside. Only the gateway (8080) should be public.
+Important: keep service ports 8081 to 8083 private; only the gateway (8080) should be public. Inventory requires forwarded identity headers and enforces roles, but does not verify JWTs itself. A caller reaching port 8082 directly could forge those headers and bypass Gateway JWT validation.
 
 ## Auth endpoints
 
@@ -141,5 +143,5 @@ Android emulator on plain http needs `android:usesCleartextTraffic="true"` in `A
 - `password authentication failed`: wrong `DB_PASSWORD` / password in `auth-service/application.yml`.
 - `database "auth_db" does not exist`: run `CREATE DATABASE auth_db;` once.
 - 401 `TOKEN_INVALID` on everything: `JWT_SECRET` differs between gateway and auth-service.
-- 503 or "Connection refused" from the gateway: the target service is not running (inventory and orders are not part of this project).
+- 503 or "Connection refused" from the gateway: the target service is not running or `INVENTORY_SERVICE_URL` points to the wrong host/port.
 - Port already in use: stop the old process or change `server.port`.

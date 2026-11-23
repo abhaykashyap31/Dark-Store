@@ -5,6 +5,7 @@
     <option name="originalFiles">
       <list>
         <option value="$PROJECT_DIR$/darkstore-backend/pom.xml" />
+        <option value="$PROJECT_DIR$/darkstore-backend/Inventory/pom.xml" />
       </list>
     </option>
   </component>

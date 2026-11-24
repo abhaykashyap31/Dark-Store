@@ -5,7 +5,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "reservations",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "store_id", "product_id"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "store_id"}))
 public class StockReservation {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -14,10 +14,6 @@ public class StockReservation {
     private java.util.UUID orderId;
     @Column(name = "store_id", nullable = false)
     private java.util.UUID storeId;
-    @Column(name = "product_id", nullable = false)
-    private java.util.UUID productId;
-    @Column(nullable = false)
-    private int quantity;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReservationStatus status = ReservationStatus.RESERVED;
@@ -30,10 +26,6 @@ public class StockReservation {
     public void setOrderId(java.util.UUID orderId) { this.orderId = orderId; }
     public java.util.UUID getStoreId() { return storeId; }
     public void setStoreId(java.util.UUID storeId) { this.storeId = storeId; }
-    public java.util.UUID getProductId() { return productId; }
-    public void setProductId(java.util.UUID productId) { this.productId = productId; }
-    public int getQuantity() { return quantity; }
-    public void setQuantity(int quantity) { this.quantity = quantity; }
     public ReservationStatus getStatus() { return status; }
     public void setStatus(ReservationStatus status) { this.status = status; }
     public Instant getCreatedAt() { return createdAt; }

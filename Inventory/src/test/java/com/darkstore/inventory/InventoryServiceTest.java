@@ -4,6 +4,8 @@ import com.darkstore.inventory.domain.StoreInventory;
 import com.darkstore.inventory.dto.Dtos.*;
 import com.darkstore.inventory.repository.CategoryRepository;
 import com.darkstore.inventory.repository.ProductRepository;
+import com.darkstore.inventory.repository.ReservationItemRepository;
+import com.darkstore.inventory.repository.StockReservationRepository;
 import com.darkstore.inventory.repository.StoreInventoryRepository;
 import com.darkstore.inventory.service.InventoryService;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,10 @@ class InventoryServiceTest {
     @Autowired
     private StoreInventoryRepository storeInventory;
     @Autowired
+    private StockReservationRepository reservations;
+    @Autowired
+    private ReservationItemRepository reservationItems;
+    @Autowired
     private MockMvc mockMvc;
 
     @Test
@@ -52,13 +58,40 @@ class InventoryServiceTest {
         ReserveResponse first = inventory.reserve(request);
         ReserveResponse repeated = inventory.reserve(request);
 
-        assertEquals("CONFIRMED", first.status());
-        assertEquals("CONFIRMED", repeated.status());
+        assertEquals("RESERVED", first.status());
+        assertEquals("RESERVED", repeated.status());
         assertEquals(7, inventory.getStock(storeId, product.getId()).getAvailable());
+        assertEquals(1, reservations.findByOrderId(orderId).size());
+        assertEquals(1, reservationItems.findByReservationId(
+                reservations.findByOrderId(orderId).getFirst().getId()).size());
 
         ReserveResponse released = inventory.release(orderId);
         assertEquals("RELEASED", released.status());
         assertEquals(10, inventory.getStock(storeId, product.getId()).getAvailable());
+    }
+
+    @Test
+    void oneReservationHeaderStoresMultipleItemsAndRejectsChangedRetries() {
+        UUID storeId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        var first = inventory.createProduct(new ProductRequest("Apples", null, "APPLE-MULTI", null, true));
+        var second = inventory.createProduct(new ProductRequest("Oranges", null, "ORANGE-MULTI", null, true));
+        inventory.upsertStock(new StockRequest(storeId, first.getId(), BigDecimal.ONE, 8, 1));
+        inventory.upsertStock(new StockRequest(storeId, second.getId(), BigDecimal.ONE, 8, 1));
+        ReserveRequest request = new ReserveRequest(orderId, storeId, List.of(
+                new ReservationItem(first.getId(), 2),
+                new ReservationItem(second.getId(), 3)));
+
+        assertEquals("RESERVED", inventory.reserve(request).status());
+        var reservation = reservations.findByOrderIdAndStoreId(orderId, storeId).orElseThrow();
+        assertEquals(2, reservationItems.findByReservationId(reservation.getId()).size());
+        assertEquals("RESERVED", inventory.reserve(request).status());
+
+        ReserveResponse changedRetry = inventory.reserve(new ReserveRequest(orderId, storeId,
+                List.of(new ReservationItem(first.getId(), 2))));
+        assertEquals("FAILED", changedRetry.status());
+        assertEquals(6, inventory.getStock(storeId, first.getId()).getAvailable());
+        assertEquals(5, inventory.getStock(storeId, second.getId()).getAvailable());
     }
 
     @Test
@@ -129,6 +162,21 @@ class InventoryServiceTest {
         assertTrue(inventory.listStock(null).stream()
                 .anyMatch(stock -> stock.getStoreId().equals(storeId)
                         && stock.getProductId().equals(product.getId())));
+    }
+
+    @Test
+    void stockAdjustmentsRecordMovementTypeAndReasonSeparately() {
+        UUID storeId = UUID.randomUUID();
+        var product = inventory.createProduct(new ProductRequest("Eggs", null, "EGGS-MOVEMENT", null, true));
+        inventory.upsertStock(new StockRequest(storeId, product.getId(), BigDecimal.ONE, 5, 1));
+
+        inventory.adjustStock(new StockAdjustment(storeId, product.getId(), -1, "DAMAGED", null));
+        var movement = inventory.movements(storeId, product.getId()).getFirst();
+
+        assertEquals("ADJUSTMENT", movement.getType());
+        assertEquals("DAMAGED", movement.getReason());
+        assertEquals(-1, movement.getQuantityDelta());
+        assertEquals(4, movement.getBalanceAfter());
     }
 
     @Test

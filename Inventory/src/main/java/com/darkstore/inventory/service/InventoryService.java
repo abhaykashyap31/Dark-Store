@@ -27,14 +27,6 @@ public class InventoryService {
     public InventoryService(CategoryRepository categories, ProductRepository products,
                             StoreInventoryRepository inventory,
                             StockReservationRepository reservations,
-                            StockMovementRepository movements) {
-        this(categories, products, inventory, reservations, movements, null);
-    }
-
-    @Autowired
-    public InventoryService(CategoryRepository categories, ProductRepository products,
-                            StoreInventoryRepository inventory,
-                            StockReservationRepository reservations,
                             StockMovementRepository movements,
                             ReservationItemRepository reservationItems) {
         this.categories = categories;
@@ -117,8 +109,8 @@ public class InventoryService {
 
     public void deleteProduct(UUID id) {
         Product product = getProduct(id);
-        if (inventory.existsByProductId(id) || reservations.existsByProductId(id)
-                || movements.existsByProductId(id)) {
+        if (inventory.existsByProductId(id) || reservationItems.existsByProductId(id)
+                || movements.existsByStoreInventory_ProductId(id)) {
             throw new ResourceConflictException("Product has inventory or stock history and cannot be deleted");
         }
         products.delete(product);
@@ -217,7 +209,8 @@ public class InventoryService {
         record.setOnHand(next);
         record.setUpdatedAt(Instant.now());
         inventory.save(record);
-        recordMovement(record, request.quantityChange(), request.reason(), "ADJUSTMENT", request.referenceId());
+        recordMovement(record, request.quantityChange(), "ADJUSTMENT", request.reason(),
+                "ADJUSTMENT", request.referenceId());
         return record;
     }
 
@@ -236,25 +229,29 @@ public class InventoryService {
         }
 
         List<ReservationItemResult> failed = new ArrayList<>();
-        for (Map.Entry<UUID, Integer> entry : quantities.entrySet()) {
-            UUID productId = entry.getKey();
-            int quantity = entry.getValue();
-            StockReservation existing = reservations.findByOrderIdAndStoreIdAndProductId(
-                    request.orderId(), request.storeId(), productId).orElse(null);
-            if (existing != null) {
-                if (existing.getStatus() == StockReservation.ReservationStatus.RELEASED) {
-                    failed.add(new ReservationItemResult(productId, quantity, "FAILED", null));
-                } else if (existing.getQuantity() != quantity) {
-                    failed.add(new ReservationItemResult(productId, quantity, "FAILED", null));
+        StockReservation existingReservation = reservations.findByOrderIdAndStoreId(
+                request.orderId(), request.storeId()).orElse(null);
+        Map<UUID, Integer> existingQuantities = existingReservation == null
+                ? Map.of()
+                : quantitiesFor(existingReservation);
+        if (existingReservation != null) {
+            if (existingReservation.getStatus() == StockReservation.ReservationStatus.RELEASED
+                    || !existingQuantities.equals(quantities)) {
+                for (Map.Entry<UUID, Integer> entry : quantities.entrySet()) {
+                    failed.add(new ReservationItemResult(entry.getKey(), entry.getValue(), "FAILED", null));
                 }
-                continue;
             }
-            StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(request.storeId(), productId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
-                            request.storeId() + "/" + productId));
-            if (record.getAvailable() < quantity) {
-                failed.add(new ReservationItemResult(productId, quantity, "FAILED",
-                        record.getAvailable()));
+        } else {
+            for (Map.Entry<UUID, Integer> entry : quantities.entrySet()) {
+                UUID productId = entry.getKey();
+                int quantity = entry.getValue();
+                StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(request.storeId(), productId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
+                                request.storeId() + "/" + productId));
+                if (record.getAvailable() < quantity) {
+                    failed.add(new ReservationItemResult(productId, quantity, "FAILED",
+                            record.getAvailable()));
+                }
             }
         }
         if (!failed.isEmpty()) {
@@ -268,37 +265,38 @@ public class InventoryService {
             StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(request.storeId(), productId)
                     .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
                             request.storeId() + "/" + productId));
-            StockReservation existing = reservations.findByOrderIdAndStoreIdAndProductId(
-                            request.orderId(), request.storeId(), productId).orElse(null);
-            if (existing != null) {
-                results.add(new ReservationItemResult(productId, existing.getQuantity(),
-                        existing.getStatus().name(), record.getAvailable()));
+            if (existingReservation != null) {
+                results.add(new ReservationItemResult(productId, quantity,
+                        existingReservation.getStatus().name(), record.getAvailable()));
                 continue;
             }
             record.setReserved(record.getReserved() + quantity);
             record.setUpdatedAt(Instant.now());
             inventory.save(record);
 
-            StockReservation reservation = new StockReservation();
-            reservation.setOrderId(request.orderId());
-            reservation.setStoreId(request.storeId());
-            reservation.setProductId(productId);
-            reservation.setQuantity(quantity);
-            reservation.setStatus(StockReservation.ReservationStatus.RESERVED);
-            reservations.save(reservation);
-            if (reservationItems != null) {
-                com.darkstore.inventory.domain.ReservationItem reservationItem =
-                        new com.darkstore.inventory.domain.ReservationItem();
-                reservationItem.setReservationId(reservation.getId());
-                reservationItem.setProductId(productId);
-                reservationItem.setQuantity(quantity);
-                reservationItems.save(reservationItem);
-            }
-            recordMovement(record, -quantity, "RESERVE", "ORDER", request.orderId());
+            recordMovement(record, -quantity, "RESERVE", "RESERVE", "ORDER", request.orderId());
             results.add(new ReservationItemResult(productId, quantity, "RESERVED",
                     record.getAvailable()));
         }
-        return new ReserveResponse(request.orderId(), "CONFIRMED", results);
+        if (existingReservation == null) {
+            StockReservation reservation = new StockReservation();
+            reservation.setOrderId(request.orderId());
+            reservation.setStoreId(request.storeId());
+            reservation.setStatus(StockReservation.ReservationStatus.RESERVED);
+            reservation = reservations.save(reservation);
+            for (Map.Entry<UUID, Integer> entry : quantities.entrySet()) {
+                com.darkstore.inventory.domain.ReservationItem reservationItem =
+                        new com.darkstore.inventory.domain.ReservationItem();
+                reservationItem.setReservationId(reservation.getId());
+                reservationItem.setProductId(entry.getKey());
+                reservationItem.setQuantity(entry.getValue());
+                reservationItems.save(reservationItem);
+            }
+        }
+        String status = existingReservation == null
+                ? StockReservation.ReservationStatus.RESERVED.name()
+                : existingReservation.getStatus().name();
+        return new ReserveResponse(request.orderId(), status, results);
     }
 
     @Transactional
@@ -309,27 +307,28 @@ public class InventoryService {
         }
         List<ReservationItemResult> results = new ArrayList<>();
         for (StockReservation reservation : orderReservations) {
-            if (reservation.getStatus() == StockReservation.ReservationStatus.RELEASED) {
-                results.add(new ReservationItemResult(reservation.getProductId(), reservation.getQuantity(),
-                        "RELEASED", getStock(reservation.getStoreId(), reservation.getProductId()).getAvailable()));
-                continue;
-            }
             if (reservation.getStatus() == StockReservation.ReservationStatus.CONFIRMED) {
                 throw new IllegalStateException("Confirmed reservations cannot be released");
             }
-            StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(
-                            reservation.getStoreId(), reservation.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
-                            reservation.getStoreId() + "/" + reservation.getProductId()));
-            record.setReserved(Math.max(0, record.getReserved() - reservation.getQuantity()));
-            record.setUpdatedAt(Instant.now());
-            inventory.save(record);
-            reservation.setStatus(StockReservation.ReservationStatus.RELEASED);
-            reservation.setUpdatedAt(Instant.now());
-            reservations.save(reservation);
-            recordMovement(record, reservation.getQuantity(), "RELEASE", "ORDER", orderId);
-            results.add(new ReservationItemResult(reservation.getProductId(), reservation.getQuantity(),
-                    "RELEASED", record.getAvailable()));
+            for (com.darkstore.inventory.domain.ReservationItem item : reservationItems.findByReservationId(reservation.getId())) {
+                StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(
+                                reservation.getStoreId(), item.getProductId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
+                                reservation.getStoreId() + "/" + item.getProductId()));
+                if (reservation.getStatus() == StockReservation.ReservationStatus.RESERVED) {
+                    record.setReserved(Math.max(0, record.getReserved() - item.getQuantity()));
+                    record.setUpdatedAt(Instant.now());
+                    inventory.save(record);
+                    recordMovement(record, item.getQuantity(), "RELEASE", "RELEASE", "ORDER", orderId);
+                }
+                results.add(new ReservationItemResult(item.getProductId(), item.getQuantity(),
+                        "RELEASED", record.getAvailable()));
+            }
+            if (reservation.getStatus() == StockReservation.ReservationStatus.RESERVED) {
+                reservation.setStatus(StockReservation.ReservationStatus.RELEASED);
+                reservation.setUpdatedAt(Instant.now());
+                reservations.save(reservation);
+            }
         }
         return new ReserveResponse(orderId, "RELEASED", results);
     }
@@ -342,30 +341,39 @@ public class InventoryService {
         }
         List<ReservationItemResult> results = new ArrayList<>();
         for (StockReservation reservation : orderReservations) {
-            if (reservation.getStatus() == StockReservation.ReservationStatus.CONFIRMED) {
-                results.add(new ReservationItemResult(reservation.getProductId(), reservation.getQuantity(),
-                        "CONFIRMED", getStock(reservation.getStoreId(), reservation.getProductId()).getAvailable()));
-                continue;
-            }
             if (reservation.getStatus() == StockReservation.ReservationStatus.RELEASED) {
                 throw new IllegalStateException("Released reservations cannot be confirmed");
             }
-            StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(
-                            reservation.getStoreId(), reservation.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
-                            reservation.getStoreId() + "/" + reservation.getProductId()));
-            record.setReserved(Math.max(0, record.getReserved() - reservation.getQuantity()));
-            record.setOnHand(Math.max(0, record.getOnHand() - reservation.getQuantity()));
-            record.setUpdatedAt(Instant.now());
-            inventory.save(record);
-            reservation.setStatus(StockReservation.ReservationStatus.CONFIRMED);
-            reservation.setUpdatedAt(Instant.now());
-            reservations.save(reservation);
-            recordMovement(record, -reservation.getQuantity(), "CONFIRM", "ORDER", orderId);
-            results.add(new ReservationItemResult(reservation.getProductId(), reservation.getQuantity(),
-                    "CONFIRMED", record.getAvailable()));
+            for (com.darkstore.inventory.domain.ReservationItem item : reservationItems.findByReservationId(reservation.getId())) {
+                StoreInventory record = inventory.findForUpdateByStoreIdAndProductId(
+                                reservation.getStoreId(), item.getProductId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Store inventory",
+                                reservation.getStoreId() + "/" + item.getProductId()));
+                if (reservation.getStatus() == StockReservation.ReservationStatus.RESERVED) {
+                    record.setReserved(Math.max(0, record.getReserved() - item.getQuantity()));
+                    record.setOnHand(Math.max(0, record.getOnHand() - item.getQuantity()));
+                    record.setUpdatedAt(Instant.now());
+                    inventory.save(record);
+                    recordMovement(record, -item.getQuantity(), "CONFIRM", "CONFIRM", "ORDER", orderId);
+                }
+                results.add(new ReservationItemResult(item.getProductId(), item.getQuantity(),
+                        "CONFIRMED", record.getAvailable()));
+            }
+            if (reservation.getStatus() == StockReservation.ReservationStatus.RESERVED) {
+                reservation.setStatus(StockReservation.ReservationStatus.CONFIRMED);
+                reservation.setUpdatedAt(Instant.now());
+                reservations.save(reservation);
+            }
         }
         return new ReserveResponse(orderId, "CONFIRMED", results);
+    }
+
+    private Map<UUID, Integer> quantitiesFor(StockReservation reservation) {
+        Map<UUID, Integer> quantities = new LinkedHashMap<>();
+        for (com.darkstore.inventory.domain.ReservationItem item : reservationItems.findByReservationId(reservation.getId())) {
+            quantities.put(item.getProductId(), item.getQuantity());
+        }
+        return quantities;
     }
 
     public ValidateResponse validate(UUID storeId, List<UUID> productIds) {
@@ -382,19 +390,17 @@ public class InventoryService {
     }
 
     public List<StockMovement> movements(UUID storeId, UUID productId) {
-        return movements.findByStoreIdAndProductIdOrderByCreatedAtDesc(storeId, productId);
+        return movements.findByStoreInventory_StoreIdAndStoreInventory_ProductIdOrderByCreatedAtDesc(
+                storeId, productId);
     }
 
-    private void recordMovement(StoreInventory record, int quantityChange, String reason,
-                                 String referenceType, UUID referenceId) {
+    private void recordMovement(StoreInventory record, int quantityChange, String type, String reason,
+                                String referenceType, UUID referenceId) {
         StockMovement movement = new StockMovement();
         movement.setStoreInventoryId(record.getId());
-        movement.setStoreId(record.getStoreId());
-        movement.setProductId(record.getProductId());
-        movement.setQuantityChange(quantityChange);
         movement.setQuantityDelta(quantityChange);
         movement.setBalanceAfter(record.getOnHand());
-        movement.setType(reason);
+        movement.setType(type);
         movement.setReferenceType(referenceType);
         movement.setReason(reason);
         movement.setReferenceId(referenceId);

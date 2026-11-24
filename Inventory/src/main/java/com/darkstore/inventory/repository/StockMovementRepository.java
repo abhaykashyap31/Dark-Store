@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface StockMovementRepository extends JpaRepository<StockMovement, UUID> {
-    List<StockMovement> findByStoreIdAndProductIdOrderByCreatedAtDesc(UUID storeId, UUID productId);
-    boolean existsByProductId(UUID productId);
+    List<StockMovement> findByStoreInventory_StoreIdAndStoreInventory_ProductIdOrderByCreatedAtDesc(
+            UUID storeId, UUID productId);
+    boolean existsByStoreInventory_ProductId(UUID productId);
 }

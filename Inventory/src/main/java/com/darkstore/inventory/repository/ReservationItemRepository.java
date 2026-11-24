@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface ReservationItemRepository extends JpaRepository<ReservationItem, UUID> {
     List<ReservationItem> findByReservationId(UUID reservationId);
+    boolean existsByProductId(UUID productId);
 }

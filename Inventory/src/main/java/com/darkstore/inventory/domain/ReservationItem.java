@@ -4,7 +4,8 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "reservation_items")
+@Table(name = "reservation_items",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"reservation_id", "product_id"}))
 public class ReservationItem {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -15,6 +16,14 @@ public class ReservationItem {
     private UUID productId;
     @Column(nullable = false)
     private int quantity;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "reservation_id", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(name = "fk_reservation_items_reservation"))
+    private StockReservation reservation;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(name = "fk_reservation_items_product"))
+    private Product product;
 
     public UUID getId() { return id; }
     public UUID getReservationId() { return reservationId; }

@@ -12,6 +12,10 @@ public class Category {
     private String name;
     @Column(name = "parent_id")
     private java.util.UUID parentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(name = "fk_categories_parent"))
+    private Category parent;
     @Column(nullable = false, unique = true)
     private String slug;
     private String description;

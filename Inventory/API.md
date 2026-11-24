@@ -1,5 +1,9 @@
 # Inventory Service API
 
+For Flutter-focused endpoint, request, response, and client error handling guidance, see the
+repository-level [API_docs.md](../API_docs.md). This file keeps the service-level details and
+Postman collection instructions.
+
 This document describes the Inventory Spring Boot service routes and request/response bodies. The importable Postman collection is [Inventory.postman_collection.json](./postman/Inventory.postman_collection.json).
 
 ## Run locally
@@ -151,7 +155,7 @@ Stock response:
 }
 ```
 
-Movement response items include `id`, `storeInventoryId`, `storeId`, `productId`, `quantityChange`, `quantityDelta`, `balanceAfter`, `type`, `referenceType`, `reason`, `referenceId`, `createdBy`, and `createdAt`.
+Movement response items include `id`, `storeInventoryId`, `type`, `quantityDelta`, `balanceAfter`, `referenceType`, `reason`, `referenceId`, `performedBy`, and `createdAt`.
 
 ## Reservations and validation
 
@@ -192,7 +196,7 @@ Reserve response:
 ```json
 {
   "orderId": "20b7c414-44ac-4ce0-89c7-a1ed95062f1d",
-  "status": "CONFIRMED",
+  "status": "RESERVED",
   "items": [
     {
       "productId": "19b7c414-44ac-4ce0-89c7-a1ed95062f1d",
@@ -204,7 +208,7 @@ Reserve response:
 }
 ```
 
-The response `status` is `FAILED` if any requested quantity cannot be reserved; the `items` array lists the failing item(s) and available stock. Reservation item quantities must be positive and the `items` array cannot be empty. Repeating an identical reservation request is idempotent. Release restores availability; confirm consumes reserved and on-hand stock. Released reservations cannot be confirmed, and confirmed reservations cannot be released.
+The response `status` is `FAILED` if any requested quantity cannot be reserved; this route still returns HTTP `201`, so clients must check the response body's status. Reservation item quantities must be positive and the `items` array cannot be empty. Repeating an identical reservation request is idempotent; retrying the same order/store with a different item set returns `FAILED`. A successful reserve has status `RESERVED`. Release restores availability; confirm consumes reserved and on-hand stock. Released reservations cannot be confirmed, and confirmed reservations cannot be released.
 
 Validation request:
 

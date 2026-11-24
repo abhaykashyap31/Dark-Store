@@ -13,9 +13,14 @@ public class Product {
     private String name;
     @Column(columnDefinition = "text")
     private String description;
+    @Column(nullable = false, unique = true)
     private String sku;
     @Column(name = "category_id")
     private java.util.UUID categoryId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(name = "fk_products_category"))
+    private Category category;
     @Column(name = "image_url")
     private String imageUrl;
     @Column(name = "base_price", precision = 19, scale = 2)

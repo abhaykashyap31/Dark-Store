@@ -15,6 +15,10 @@ public class StoreInventory {
     private java.util.UUID storeId;
     @Column(name = "product_id", nullable = false)
     private java.util.UUID productId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(name = "fk_store_inventory_product"))
+    private Product product;
     @Column(name = "quantity_on_hand", nullable = false)
     private int onHand = 0;
     @Column(name = "reserved_quantity", nullable = false)

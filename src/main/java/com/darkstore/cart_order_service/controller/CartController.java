@@ -10,6 +10,8 @@ import com.darkstore.cart_order_service.service.CartService;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/cart")
+@PreAuthorize("hasRole('CUSTOMER')")
 public class CartController {
 
     private final CartService cartService;
@@ -33,10 +36,14 @@ public class CartController {
     // 1. Create cart
     @PostMapping
     public Cart createCart(
+            @RequestHeader("X-USER-ID") UUID authenticatedUserId,
             @Valid @RequestBody CreateCartRequest request
     ) {
+        if (!authenticatedUserId.equals(request.getUserId())) {
+            throw new AccessDeniedException("A customer can create a cart only for their own account");
+        }
         return cartService.createCart(
-                request.getUserId(),
+                authenticatedUserId,
                 request.getStoreId()
         );
     }
@@ -50,9 +57,7 @@ public class CartController {
         CartItem item = cartService.addProductToCart(
                 userId,
                 request.getProductId(),
-                request.getProductName(),
-                request.getQuantity(),
-                request.getUnitPrice()
+                request.getQuantity()
         );
 
         return new CartItemResponse(

@@ -9,6 +9,7 @@ import com.darkstore.cart_order_service.enums.OrderStatus;
 import com.darkstore.cart_order_service.repository.OrderRepository;
 import com.darkstore.cart_order_service.repository.OrderStatusHistoryRepository;
 import com.darkstore.cart_order_service.repository.RiderAssignmentRepository;
+import com.darkstore.cart_order_service.integration.InventoryClient;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +24,18 @@ public class RiderAssignmentService {
     private final OrderRepository orderRepository;
     private final RiderAssignmentRepository assignmentRepository;
     private final OrderStatusHistoryRepository historyRepository;
+    private final InventoryClient inventoryClient;
 
     public RiderAssignmentService(
             OrderRepository orderRepository,
             RiderAssignmentRepository assignmentRepository,
-            OrderStatusHistoryRepository historyRepository) {
+            OrderStatusHistoryRepository historyRepository,
+            InventoryClient inventoryClient) {
 
         this.orderRepository = orderRepository;
         this.assignmentRepository = assignmentRepository;
         this.historyRepository = historyRepository;
+        this.inventoryClient = inventoryClient;
     }
 
     // View available orders
@@ -158,6 +162,8 @@ public class RiderAssignmentService {
                 throw new IllegalArgumentException(
                         "Order is not out for delivery");
         }
+
+        inventoryClient.confirm(orderId);
 
         // Update assignment
         assignment.setStatus(AssignmentStatus.DELIVERED);

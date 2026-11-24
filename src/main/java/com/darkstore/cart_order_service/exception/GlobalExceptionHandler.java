@@ -1,11 +1,13 @@
 package com.darkstore.cart_order_service.exception;
 
+import com.darkstore.cart_order_service.integration.InventoryIntegrationException;
 import jakarta.validation.ConstraintViolationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -48,6 +50,15 @@ public class GlobalExceptionHandler {
 
         return createResponse(
                 HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleStateConflict(IllegalStateException ex) {
+        return createResponse(
+                HttpStatus.CONFLICT,
                 ex.getMessage(),
                 Map.of()
         );
@@ -131,6 +142,17 @@ public class GlobalExceptionHandler {
                 "Operation conflicts with existing database data",
                 Map.of()
         );
+    }
+
+    @ExceptionHandler(InventoryIntegrationException.class)
+    public ResponseEntity<ErrorResponse> handleInventoryFailure(InventoryIntegrationException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatus());
+        return createResponse(status, ex.getMessage(), Map.of());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return createResponse(HttpStatus.FORBIDDEN, ex.getMessage(), Map.of());
     }
 
     // 500 - Unexpected exception

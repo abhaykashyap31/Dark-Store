@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -26,6 +27,7 @@ public class PaymentController {
 
     // Create payment for an order
     @PostMapping("/orders/{orderId}/payments")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<PaymentResponse> createPayment(
             @PathVariable UUID orderId,
             @RequestHeader("X-USER-ID") UUID userId,
@@ -44,12 +46,15 @@ public class PaymentController {
 
     // Process mock payment
     @PostMapping("/payments/{paymentId}/process")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<PaymentResponse> processPayment(
             @PathVariable UUID paymentId,
-            @RequestParam boolean success) {
+            @RequestParam boolean success,
+            @RequestHeader("X-USER-ID") UUID userId) {
 
         Payment payment = paymentService.processMockPayment(
                 paymentId,
+                userId,
                 success
         );
 
@@ -57,6 +62,7 @@ public class PaymentController {
     }
 
     @GetMapping("/orders/{orderId}/payments")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<PaymentResponse> getPaymentDetails(
             @PathVariable UUID orderId,
             @RequestHeader("X-USER-ID") UUID userId) {
@@ -69,10 +75,12 @@ public class PaymentController {
     }
 
     @PostMapping("/payments/{paymentId}/collect-cod")
+    @PreAuthorize("hasRole('RIDER')")
     public ResponseEntity<PaymentResponse> collectCodPayment(
-            @PathVariable UUID paymentId) {
+            @PathVariable UUID paymentId,
+            @RequestHeader("X-RIDER-ID") UUID riderId) {
 
-        Payment payment = paymentService.collectCodPayment(paymentId);
+        Payment payment = paymentService.collectCodPayment(paymentId, riderId);
 
         return ResponseEntity.ok(new PaymentResponse(payment));
     }

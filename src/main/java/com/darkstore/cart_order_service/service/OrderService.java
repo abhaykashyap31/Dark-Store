@@ -10,11 +10,14 @@ import com.darkstore.cart_order_service.enums.OrderStatus;
 import com.darkstore.cart_order_service.repository.OrderRepository;
 import com.darkstore.cart_order_service.repository.OrderItemRepository;
 import com.darkstore.cart_order_service.repository.OrderStatusHistoryRepository;
+import com.darkstore.cart_order_service.integration.InventoryClient;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -24,17 +27,20 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final OrderStatusHistoryRepository historyRepository;
     private final PaymentService paymentService;
+    private final InventoryClient inventoryClient;
 
     public OrderService(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             OrderStatusHistoryRepository historyRepository,
-            PaymentService paymentService
+            PaymentService paymentService,
+            InventoryClient inventoryClient
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.historyRepository = historyRepository;
         this.paymentService = paymentService;
+        this.inventoryClient = inventoryClient;
     }
 
     // 1. Get a particular order
@@ -43,11 +49,11 @@ public class OrderService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Order not found")
+                        new NoSuchElementException("Order not found")
                 );
 
         if (!order.getUserId().equals(userId)) {
-            throw new IllegalArgumentException(
+            throw new AccessDeniedException(
                     "You cannot access this order"
             );
         }
@@ -74,15 +80,19 @@ public class OrderService {
     public Order updateOrderStatus(
             UUID orderId,
             OrderStatus newStatus,
-            UUID changedBy
+            UUID changedBy,
+            UUID storeId
     ) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Order not found")
+                        new NoSuchElementException("Order not found")
                 );
 
         OrderStatus currentStatus = order.getStatus();
+        if (storeId != null && !order.getStoreId().equals(storeId)) {
+            throw new AccessDeniedException("Order does not belong to your store");
+        }
 
         boolean validTransition = switch (currentStatus) {
 
@@ -95,17 +105,11 @@ public class OrderService {
             case PREPARING ->
                     newStatus == OrderStatus.READY_FOR_PICKUP;
 
-            case READY_FOR_PICKUP ->
-                    newStatus == OrderStatus.OUT_FOR_DELIVERY;
-
-            case OUT_FOR_DELIVERY ->
-                    newStatus == OrderStatus.DELIVERED;
-
             default -> false;
         };
 
         if (!validTransition) {
-            throw new IllegalArgumentException(
+            throw new IllegalStateException(
                     "Invalid order status transition: "
                     + currentStatus + " to " + newStatus
             );
@@ -144,12 +148,12 @@ public class OrderService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Order not found")
+                        new NoSuchElementException("Order not found")
                 );
 
         // Check order ownership
         if (!order.getUserId().equals(userId)) {
-            throw new IllegalArgumentException(
+            throw new AccessDeniedException(
                     "You cannot cancel this order"
             );
         }
@@ -158,10 +162,12 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PLACED &&
                 order.getStatus() != OrderStatus.CONFIRMED) {
 
-            throw new IllegalArgumentException(
+            throw new IllegalStateException(
                     "This order cannot be cancelled"
             );
         }
+
+        inventoryClient.release(orderId);
 
         // Update order status
         order.setStatus(OrderStatus.CANCELLED);

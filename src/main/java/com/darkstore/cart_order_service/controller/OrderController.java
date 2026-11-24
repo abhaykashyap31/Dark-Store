@@ -9,6 +9,7 @@ import com.darkstore.cart_order_service.service.OrderService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class OrderController {
 
     // 1. Get all customer orders
     @GetMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     public List<OrderResponse> getAllOrders(
             @RequestHeader("X-USER-ID") UUID userId
     ) {
@@ -38,6 +40,7 @@ public class OrderController {
 
     // 2. Get a particular order
     @GetMapping("/{orderId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public OrderResponse getOrder(
             @PathVariable UUID orderId,
             @RequestHeader("X-USER-ID") UUID userId
@@ -49,14 +52,18 @@ public class OrderController {
 
     // 3. Update order status
     @PatchMapping("/{orderId}/status")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     public OrderResponse updateOrderStatus(
             @PathVariable UUID orderId,
-            @Valid @RequestBody UpdateOrderStatusRequest request
+            @Valid @RequestBody UpdateOrderStatusRequest request,
+            @RequestHeader("X-USER-ID") UUID changedBy,
+            @RequestHeader(name = "X-STORE-ID", required = false) UUID storeId
     ) {
         Order order = orderService.updateOrderStatus(
                 orderId,
                 request.getStatus(),
-                request.getChangedBy()
+                changedBy,
+                storeId
         );
 
         return convertToResponse(order);
@@ -64,6 +71,7 @@ public class OrderController {
 
     // 4. Get order status history
     @GetMapping("/{orderId}/history")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public List<OrderStatusHistoryResponse> getOrderStatusHistory(
             @PathVariable UUID orderId,
             @RequestHeader("X-USER-ID") UUID userId
@@ -83,6 +91,7 @@ public class OrderController {
 
     // 5. Cancel an order
     @PatchMapping("/{orderId}/cancel")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable UUID orderId,
             @RequestHeader("X-USER-ID") UUID userId

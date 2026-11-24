@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dark Store Admin</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --ink:#1b1f24; --muted:#6a7380; --line:#e1e4e8; --brand:#0b7a4b; --danger:#c62828; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  .center { min-height:100vh; display:grid; place-items:center; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:24px; width:100%; }
+  .login { max-width:380px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  p.sub { color:var(--muted); margin:0 0 18px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; background:#fff; }
+  button { padding:9px 14px; border:0; border-radius:6px; background:var(--brand); color:#fff; font:inherit; cursor:pointer; }
+  button.secondary { background:#e9ecef; color:var(--ink); }
+  button.danger { background:var(--danger); }
+  button:disabled { opacity:.6; cursor:default; }
+  .login button { width:100%; margin-top:16px; }
+  .err { color:var(--danger); min-height:1.2em; margin-top:10px; font-size:14px; }
+  .ok { color:var(--brand); min-height:1.2em; margin-top:10px; font-size:14px; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line); }
+  header .who { color:var(--muted); font-size:14px; margin-right:12px; }
+  main { max-width:1000px; margin:0 auto; padding:20px; display:grid; gap:16px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:0 14px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; background:#e9ecef; }
+  .tag.ACTIVE, .tag.true { background:#d9f2e4; color:#0b6b43; }
+  .tag.DISABLED, .tag.false { background:#fde3e3; color:var(--danger); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .scroll { overflow-x:auto; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="loginView" class="center">
+  <form id="loginForm" class="card login" autocomplete="on">
+    <h1>Dark Store Admin</h1>
+    <p class="sub">Sign in with an admin account.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" value="admin@darkstore.com" required autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" value="Admin@123" required autocomplete="current-password">
+    <button id="loginBtn" type="submit">Sign in</button>
+    <div id="loginErr" class="err"></div>
+  </form>
+</div>
+
+<div id="appView" class="hidden">
+  <header>
+    <strong>Dark Store Admin</strong>
+    <div class="row"><span class="who" id="who"></span><button class="secondary" id="logoutBtn">Log out</button></div>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Create store</h2>
+      <form id="storeForm">
+        <div class="grid2">
+          <div><label>Code</label><input name="code" required maxlength="20" placeholder="DS-BOM-01"></div>
+          <div><label>Name</label><input name="name" required maxlength="100" placeholder="Andheri Dark Store"></div>
+          <div><label>City</label><input name="city" maxlength="100" placeholder="Mumbai"></div>
+          <div><label>Address</label><input name="address" maxlength="200"></div>
+          <div><label>Phone</label><input name="phone" maxlength="20"></div>
+        </div>
+        <div class="row" style="margin-top:14px"><button type="submit">Create store</button><span id="storeMsg"></span></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Stores</h2>
+      <div class="scroll"><table id="storeTable"></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Create manager or rider</h2>
+      <form id="staffForm">
+        <div class="grid2">
+          <div><label>Role</label><select name="role"><option>MANAGER</option><option>RIDER</option></select></div>
+          <div><label>Store</label><select name="storeId" id="staffStore" required></select></div>
+          <div><label>Name</label><input name="name" required maxlength="100"></div>
+          <div><label>Email</label><input name="email" type="email" required></div>
+          <div><label>Password (min 8)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
+          <div><label>Phone</label><input name="phone" maxlength="20"></div>
+        </div>
+        <div class="row" style="margin-top:14px"><button type="submit">Create user</button><span id="staffMsg"></span></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Users</h2>
+        <select id="roleFilter" style="width:auto">
+          <option value="">All roles</option><option>ADMIN</option><option>MANAGER</option><option>RIDER</option><option>CUSTOMER</option>
+        </select>
+      </div>
+      <div class="scroll" style="margin-top:10px"><table id="userTable"></table></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var API = '/api/v1';
+  var $ = function (id) { return document.getElementById(id); };
+  var session = null; // { accessToken, refreshToken, user }
+  var stores = [];
+
+  try { session = JSON.parse(sessionStorage.getItem('adminSession')); } catch (e) { session = null; }
+
+  function save() {
+    try { sessionStorage.setItem('adminSession', JSON.stringify(session)); } catch (e) {}
+  }
+
+  function el(tag, props) {
+    var node = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      if (k === 'class') node.className = props[k];
+      else if (k === 'onclick') node.onclick = props[k];
+      else node.setAttribute(k, props[k]);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return node;
+  }
+
+  function show(view) {
+    $('loginView').classList.toggle('hidden', view !== 'login');
+    $('appView').classList.toggle('hidden', view !== 'app');
+  }
+
+  async function refreshTokens() {
+    if (!session) return false;
+    var res = await fetch(API + '/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: session.refreshToken })
+    });
+    if (!res.ok) return false;
+    var data = await res.json();
+    session.accessToken = data.accessToken;
+    session.refreshToken = data.refreshToken;
+    save();
+    return true;
+  }
+
+  async function api(method, path, body, retried) {
+    var res = await fetch(API + path, {
+      method: method,
+      headers: Object.assign({ 'Authorization': 'Bearer ' + session.accessToken },
+                             body ? { 'Content-Type': 'application/json' } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    var data = null;
+    var text = await res.text();
+    if (text) { try { data = JSON.parse(text); } catch (e) { data = null; } }
+
+    if (res.status === 401 && data && data.code === 'TOKEN_EXPIRED' && !retried) {
+      if (await refreshTokens()) return api(method, path, body, true);
+      logout(true);
+      throw new Error('Session expired, please sign in again');
+    }
+    if (!res.ok) throw new Error((data && data.message) || ('Request failed (' + res.status + ')'));
+    return data;
+  }
+
+  function logout(skipServer) {
+    if (!skipServer && session) {
+      fetch(API + '/auth/logout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: session.refreshToken })
+      }).catch(function () {});
+    }
+    session = null;
+    try { sessionStorage.removeItem('adminSession'); } catch (e) {}
+    show('login');
+  }
+
+  // ---------- login ----------
+  $('loginForm').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    $('loginErr').textContent = '';
+    $('loginBtn').disabled = true;
+    try {
+      var res = await fetch(API + '/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: $('email').value, password: $('password').value })
+      });
+      var data = await res.json().catch(function () { return null; });
+      if (!res.ok) throw new Error((data && data.message) || 'Login failed');
+      if (data.user.role !== 'ADMIN') throw new Error('This page is for admin accounts only');
+      session = data;
+      save();
+      await start();
+    } catch (e) {
+      $('loginErr').textContent = e.message;
+    } finally {
+      $('loginBtn').disabled = false;
+    }
+  });
+
+  $('logoutBtn').onclick = function () { logout(false); };
+
+  // ---------- stores ----------
+  async function loadStores() {
+    stores = await api('GET', '/stores');
+    var t = $('storeTable');
+    t.replaceChildren();
+    t.appendChild(el('tr', {}, el('th', {}, 'ID'), el('th', {}, 'Code'), el('th', {}, 'Name'), el('th', {}, 'City'), el('th', {}, 'Active')));
+    stores.forEach(function (s) {
+      t.appendChild(el('tr', {}, el('td', {}, String(s.id)), el('td', {}, s.code), el('td', {}, s.name),
+        el('td', {}, s.city || ''), el('td', {}, el('span', { 'class': 'tag ' + s.active }, s.active ? 'Active' : 'Inactive'))));
+    });
+    var sel = $('staffStore');
+    sel.replaceChildren();
+    stores.forEach(function (s) { sel.appendChild(el('option', { value: String(s.id) }, s.code + ' - ' + s.name)); });
+  }
+
+  function formData(form) {
+    var out = {};
+    new FormData(form).forEach(function (v, k) { if (String(v).trim() !== '') out[k] = String(v).trim(); });
+    return out;
+  }
+
+  function msg(id, text, ok) {
+    var n = $(id);
+    n.textContent = text;
+    n.className = ok ? 'ok' : 'err';
+  }
+
+  $('storeForm').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    try {
+      await api('POST', '/stores', formData(ev.target));
+      ev.target.reset();
+      msg('storeMsg', 'Store created', true);
+      await loadStores();
+    } catch (e) { msg('storeMsg', e.message, false); }
+  });
+
+  // ---------- users ----------
+  async function loadUsers() {
+    var role = $('roleFilter').value;
+    var users = await api('GET', '/admin/users' + (role ? '?role=' + encodeURIComponent(role) : ''));
+    var t = $('userTable');
+    t.replaceChildren();
+    t.appendChild(el('tr', {}, el('th', {}, 'ID'), el('th', {}, 'Name'), el('th', {}, 'Email'), el('th', {}, 'Role'),
+      el('th', {}, 'Store'), el('th', {}, 'Status'), el('th', {}, '')));
+    users.forEach(function (u) {
+      var action = '';
+      if (session.user.id !== u.id) {
+        var next = u.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+        action = el('button', {
+          'class': u.status === 'ACTIVE' ? 'danger' : 'secondary',
+          onclick: async function () {
+            try { await api('PATCH', '/admin/users/' + u.id + '/status', { status: next }); await loadUsers(); }
+            catch (e) { alert(e.message); }
+          }
+        }, u.status === 'ACTIVE' ? 'Disable' : 'Enable');
+      }
+      t.appendChild(el('tr', {}, el('td', {}, String(u.id)), el('td', {}, u.name), el('td', {}, u.email),
+        el('td', {}, u.role), el('td', {}, u.storeId == null ? '' : String(u.storeId)),
+        el('td', {}, el('span', { 'class': 'tag ' + u.status }, u.status)), el('td', {}, action)));
+    });
+  }
+
+  $('roleFilter').onchange = function () { loadUsers().catch(function (e) { alert(e.message); }); };
+
+  $('staffForm').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    try {
+      var body = formData(ev.target);
+      body.storeId = Number(body.storeId);
+      await api('POST', '/admin/users', body);
+      ev.target.reset();
+      msg('staffMsg', 'User created', true);
+      await loadUsers();
+    } catch (e) { msg('staffMsg', e.message, false); }
+  });
+
+  // ---------- start ----------
+  async function start() {
+    $('who').textContent = session.user.name + ' (' + session.user.email + ')';
+    show('app');
+    try {
+      await loadStores();
+      await loadUsers();
+    } catch (e) {
+      logout(true);
+      $('loginErr').textContent = e.message;
+    }
+  }
+
+  if (session && session.user && session.user.role === 'ADMIN') start(); else show('login');
+})();
+</script>
+</body>
+</html>

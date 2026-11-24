@@ -10,12 +10,14 @@ import com.darkstore.cart_order_service.enums.OrderStatus;
 import com.darkstore.cart_order_service.service.OrderService;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.UUID;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/manager/orders")
+@PreAuthorize("hasRole('MANAGER')")
 public class ManagerOrderController {
 
     private final OrderService orderService;
@@ -70,12 +72,15 @@ public class ManagerOrderController {
     @PatchMapping("/{orderId}/status")
     public OrderResponse updateOrderStatus(
             @PathVariable UUID orderId,
-            @RequestBody UpdateOrderStatusRequest request) {
+            @RequestBody UpdateOrderStatusRequest request,
+            @RequestHeader("X-USER-ID") UUID changedBy,
+            @RequestHeader(name = "X-STORE-ID", required = false) UUID storeId) {
 
         Order updatedOrder = orderService.updateOrderStatus(
                 orderId,
                 request.getStatus(),
-                request.getChangedBy()
+                changedBy,
+                storeId
         );
 
         return convertToResponse(updatedOrder);

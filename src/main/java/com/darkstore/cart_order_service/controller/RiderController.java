@@ -10,12 +10,14 @@ import com.darkstore.cart_order_service.service.OrderService;
 import com.darkstore.cart_order_service.service.RiderAssignmentService;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/rider/orders")
+@PreAuthorize("hasRole('RIDER')")
 public class RiderController {
 
     private final RiderAssignmentService riderAssignmentService;

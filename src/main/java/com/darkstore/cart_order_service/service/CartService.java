@@ -8,27 +8,30 @@ import com.darkstore.cart_order_service.enums.CartStatus;
 
 import com.darkstore.cart_order_service.repository.CartRepository;
 import com.darkstore.cart_order_service.repository.CartItemRepository;
+import com.darkstore.cart_order_service.integration.InventoryClient;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.math.BigDecimal;
 
 @Service
 public class CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final InventoryClient inventoryClient;
 
-    // Constructor injection
     public CartService(
             CartRepository cartRepository,
-            CartItemRepository cartItemRepository
+            CartItemRepository cartItemRepository,
+            InventoryClient inventoryClient
     ) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
+        this.inventoryClient = inventoryClient;
     }
 
     // 1. Create a cart
@@ -83,9 +86,7 @@ public class CartService {
     public CartItem addProductToCart(
             UUID userId,
             UUID productId,
-            String productName,
-            Integer quantity,
-            BigDecimal unitPrice
+            Integer quantity
     ) {
 
         // Validate quantity
@@ -98,6 +99,8 @@ public class CartService {
         // Get customer's active cart
         Cart cart = getActiveCart(userId);
 
+        InventoryClient.AvailableProduct product = getAvailableProduct(cart.getStoreId(), productId);
+
         // Check whether product already exists in cart
         Optional<CartItem> existingItem =
                 cartItemRepository.findByCartIdAndProductId(
@@ -108,20 +111,26 @@ public class CartService {
 
             // Increase existing product quantity
             CartItem item = existingItem.get();
+            int updatedQuantity = item.getQuantity() + quantity;
+            ensureAvailable(product, updatedQuantity);
 
-            item.setQuantity(item.getQuantity() + quantity);
+            item.setQuantity(updatedQuantity);
+            item.setProductName(product.name());
+            item.setUnitPrice(product.price());
 
             return cartItemRepository.save(item);
         }
+
+        ensureAvailable(product, quantity);
 
         // Create a new cart item
         CartItem newItem = new CartItem();
 
         newItem.setCart(cart);
         newItem.setProductId(productId);
-        newItem.setProductName(productName);
+        newItem.setProductName(product.name());
         newItem.setQuantity(quantity);
-        newItem.setUnitPrice(unitPrice);
+        newItem.setUnitPrice(product.price());
 
         return cartItemRepository.save(newItem);
     }
@@ -150,7 +159,11 @@ public class CartService {
                         )
                 );
 
+        InventoryClient.AvailableProduct product = getAvailableProduct(cart.getStoreId(), productId);
+        ensureAvailable(product, quantity);
         item.setQuantity(quantity);
+        item.setProductName(product.name());
+        item.setUnitPrice(product.price());
 
         return cartItemRepository.save(item);
     }
@@ -171,6 +184,22 @@ public class CartService {
                 );
 
         cartItemRepository.delete(item);
+    }
+
+    private InventoryClient.AvailableProduct getAvailableProduct(UUID storeId, UUID productId) {
+        return inventoryClient.validateProducts(storeId, List.of(productId)).stream()
+                .filter(product -> product.productId().equals(productId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Inventory did not return product " + productId));
+    }
+
+    private void ensureAvailable(InventoryClient.AvailableProduct product, int requestedQuantity) {
+        if (product.available() < requestedQuantity) {
+            throw new IllegalStateException(
+                    "Insufficient stock for product " + product.productId()
+                            + "; available=" + product.available());
+        }
     }
 
 }

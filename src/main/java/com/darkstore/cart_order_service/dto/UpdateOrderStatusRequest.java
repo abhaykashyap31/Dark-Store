@@ -11,7 +11,6 @@ public class UpdateOrderStatusRequest {
     @NotNull(message = "Order status is required")
     private OrderStatus status;
 
-    @NotNull(message = "Changed by user ID is required")
     private UUID changedBy;
 
     public OrderStatus getStatus() {

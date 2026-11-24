@@ -6,11 +6,13 @@ import com.darkstore.cart_order_service.entity.Order;
 import com.darkstore.cart_order_service.service.CheckoutService;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/checkout")
+@PreAuthorize("hasRole('CUSTOMER')")
 public class CheckoutController {
 
     private final CheckoutService checkoutService;

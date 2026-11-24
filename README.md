@@ -13,7 +13,7 @@ Dark Store is a dark-grocery platform for browsing products, placing orders, man
 
 ### API and services
 
-- **API Gateway (Dev 1):** Spring Cloud Gateway is the public entry point. It validates JWTs and routes requests with CORS, rate limiting, and internal JWT-blocking rules.
+- **API Gateway (Dev 1):** Spring Cloud Gateway is the public entry point. It validates JWTs and routes requests to the services.
 - **Auth and User Service (Dev 1):** Registration, login, token refresh and logout, role management, profiles and addresses, store data, and store-to-user mappings.
 - **Catalog and Inventory Service (Dev 2):** Product and category management, store-specific pricing, stock reservations and releases, stock movements, and low-stock reporting.
 - **Order and Fulfillment Service (Dev 3):** Cart and order placement, order status transitions, manager order handling, payment status, order history, and tracking.
@@ -28,7 +28,7 @@ Each service owns its PostgreSQL database and must not access another service's 
 | --- | --- | --- |
 | Auth and User | `auth_db` | Users, roles, addresses, stores, and store staff |
 | Catalog and Inventory | `inventory_db` | Products, categories, store inventory, stock movement and reservations |
-| Order and Fulfillment | `orders_db` | Carts, orders, order items, status history and payments |
+| Order and Fulfillment | `quick_commerce_db` | Carts, orders, order items, status history and payments |
 
 ## Service interaction rules
 

@@ -294,7 +294,6 @@ public class InventoryService {
                 reservationItem.setQuantity(quantity);
                 reservationItems.save(reservationItem);
             }
-            recordMovement(record, -quantity, "RESERVE", "ORDER", request.orderId());
             results.add(new ReservationItemResult(productId, quantity, "RESERVED",
                     record.getAvailable()));
         }
@@ -327,7 +326,6 @@ public class InventoryService {
             reservation.setStatus(StockReservation.ReservationStatus.RELEASED);
             reservation.setUpdatedAt(Instant.now());
             reservations.save(reservation);
-            recordMovement(record, reservation.getQuantity(), "RELEASE", "ORDER", orderId);
             results.add(new ReservationItemResult(reservation.getProductId(), reservation.getQuantity(),
                     "RELEASED", record.getAvailable()));
         }
@@ -361,7 +359,7 @@ public class InventoryService {
             reservation.setStatus(StockReservation.ReservationStatus.CONFIRMED);
             reservation.setUpdatedAt(Instant.now());
             reservations.save(reservation);
-            recordMovement(record, -reservation.getQuantity(), "CONFIRM", "ORDER", orderId);
+            recordMovement(record, -reservation.getQuantity(), "SALE", "ORDER", orderId);
             results.add(new ReservationItemResult(reservation.getProductId(), reservation.getQuantity(),
                     "CONFIRMED", record.getAvailable()));
         }

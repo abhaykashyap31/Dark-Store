@@ -28,29 +28,14 @@ The web page is a single file: `api-gateway/src/main/resources/static/admin/logi
 
 ## Run
 
-1. In PostgreSQL create these databases once: `auth_db`, `inventory_db`, and `quick_commerce_db`.
-2. Set `DB_PASSWORD` for Auth and Cart/Order Service and `SPRING_DATASOURCE_PASSWORD` for Inventory Service. All usernames default to `postgres`.
-3. Set the same `JWT_SECRET` for Auth Service and API Gateway. Set the same `INVENTORY_INTERNAL_TOKEN` for Inventory and Cart/Order Service; use a high-entropy value outside local development.
-4. Start each application in its own terminal, with the three backends running before the gateway:
-
-   ```
-   bash mvnw -f darkstore-backend/auth-service/pom.xml spring-boot:run
-   bash mvnw -f darkstore-backend/Inventory/pom.xml spring-boot:run
-   bash mvnw spring-boot:run
-   bash mvnw -f darkstore-backend/api-gateway/pom.xml spring-boot:run
-   ```
-
-   The order service calls Inventory directly using `INVENTORY_SERVICE_URL` (default `http://localhost:8082`) and the internal service token. The gateway routes client requests to Order Service on port `8083`.
-5. Open http://localhost:8080/admin or import the Postman collection (see below).
-
-`JWT_SECRET` must be the same in both `application.yml` files (the defaults already match, at least 32 characters).
+See the repository-root [Run locally](../README.md#run-locally) section for prerequisites, PostgreSQL database setup, the required shared environment values, and the exact command to launch each application in its own terminal. Start Auth, Inventory, and Cart-Order before the Gateway.
 
 ## Test with Postman
 
-1. Import `postman/DarkStore-Complete.postman_collection.json` and the `postman/DarkStore-Local.postman_environment.json` environment.
-2. Set `adminPassword` and `inventoryInternalToken` in the environment. The internal token must match the value configured in both Inventory and Order Service.
-3. Open the collection, click **Run**, and run the whole collection in order. Requests contain assertions and pass IDs/tokens between service workflows.
-4. The run covers Auth/profile/address/store/staff operations, Inventory category/product/stock CRUD, Cart operations, Order checkout/status transitions, rider fulfillment, payment failure/refund, and Order-to-Inventory reservation lifecycle.
+1. From the repository root, import `postman/DarkStore-All-Services.postman_collection.json` and `postman/DarkStore-Local.postman_environment.json`.
+2. The local environment defaults `adminPassword` to `Admin@123`; change it if Auth uses another `ADMIN_PASSWORD`. Set `inventoryInternalToken` to the same value configured in Inventory and Order Service.
+3. Use Postman's Collection Runner to run the full collection in order. To run only Catalog CRUD, run that folder from its first request, `Login admin for catalog CRUD`; its later requests depend on that token and IDs created by earlier requests.
+4. The run covers Auth/profile/address/store/staff operations, Inventory category/product CRUD and stock operations, Cart operations, Order checkout/status transitions, rider fulfillment, payment failure/refund, and Order-to-Inventory reservation lifecycle. It includes delete operations only where the API exposes them.
 
 ## How requests flow
 

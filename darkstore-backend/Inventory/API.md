@@ -1,23 +1,40 @@
 # Inventory Service API
 
-This document describes the Inventory Spring Boot service routes and request/response bodies. Use the unified [DarkStore-Complete.postman_collection.json](../postman/DarkStore-Complete.postman_collection.json) to exercise all services together.
+This document describes the Inventory Spring Boot service routes and request/response bodies. For Inventory-focused Postman tests, use [Inventory.postman_collection.json](./postman/Inventory.postman_collection.json). To exercise all services together, use the repository's [DarkStore-All-Services.postman_collection.json](../../postman/DarkStore-All-Services.postman_collection.json).
 
 ## Run locally
 
+From the repository root, create the `inventory_db` PostgreSQL database if it does not exist, then start Inventory:
+
 ```bash
-cd Inventory
-mvn spring-boot:run
+export SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/inventory_db'
+export SPRING_DATASOURCE_USERNAME='postgres'
+export SPRING_DATASOURCE_PASSWORD='your-local-postgres-password'
+export INVENTORY_INTERNAL_TOKEN='your-local-inventory-token'
+bash ./mvnw -f darkstore-backend/Inventory/pom.xml spring-boot:run
 ```
 
-Create a separate PostgreSQL database for this service:
+Check that it is ready:
 
-```sql
-CREATE DATABASE inventory_db;
+```bash
+curl http://localhost:8082/actuator/health
 ```
 
-By default, the service listens on `http://localhost:8082` and connects to `jdbc:postgresql://localhost:5432/inventory_db` as `postgres`. Set `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` for your local PostgreSQL credentials; `SPRING_DATASOURCE_URL` can override the URL.
+Inventory targets Java 17 and listens on `http://localhost:8082` by default. To run its automated tests without PostgreSQL, use the test profile configured with H2:
+
+```bash
+bash ./mvnw -f darkstore-backend/Inventory/pom.xml test
+```
+
+By default, the service connects to `jdbc:postgresql://localhost:5432/inventory_db` as `postgres`. Set `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` for your local PostgreSQL credentials; `SPRING_DATASOURCE_URL` can override the URL.
 
 All examples use JSON. Inventory trusts `X-User-Id`, `X-User-Role`, and `X-Store-Id` identity headers injected by the API Gateway after JWT validation. Order Service uses the shared `INVENTORY_INTERNAL_TOKEN` in `X-Internal-Service-Token` when calling internal routes directly. Keep the token identical in both services and do not expose port `8082` publicly.
+
+## Test with Postman
+
+For Inventory by itself, import `Inventory/postman/Inventory.postman_collection.json` and run the entire collection in order. It sends requests through the API Gateway, logs in as the admin, and exercises Inventory authorization, category/product CRUD, stock operations, and reservation flows. Start PostgreSQL, Auth (8081), Inventory (8082), and the Gateway (8080) first; Order Service is not needed. The collection's `baseUrl` defaults to `http://localhost:8080/api/v1`; update its `adminEmail` or `adminPassword` variables if your local Auth setup differs.
+
+The collection creates test data. Use a development/test database rather than production. The full-stack collection requires all four application services; see the repository-root [Run locally](../../README.md#run-locally) instructions.
 
 When accessed through the API Gateway, use `/api/v1/products`, `/api/v1/categories`, and `/api/v1/inventory` paths. The gateway validates the JWT and strips the `/api/v1` prefix before forwarding to this service. Direct service calls use the paths documented below and require trusted identity headers.
 

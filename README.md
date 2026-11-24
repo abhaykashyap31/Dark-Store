@@ -56,7 +56,7 @@ Invalid status transitions are rejected as `INVALID_STATUS_TRANSITION`.
 
 ### Prerequisites
 
-- Java 21 (Auth, Gateway, and Cart-Order target Java 17; Inventory requires Java 21)
+- Java 17 (all backend services target Java 17)
 - Maven 3.9+
 - PostgreSQL running on `localhost:5432`
 - Postman Desktop for the API workflow

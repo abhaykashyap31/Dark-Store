@@ -1,6 +1,6 @@
 # Dark Store Backend: Auth, Inventory, Orders, and API Gateway
 
-Auth, Inventory, and Gateway use Spring Boot 3.3.5; Cart and Order Service is a separate Spring Boot 4.2.0 project at the repository root. All services target Java 17.
+Auth, Inventory, and Gateway use Spring Boot 3.3.5; Cart and Order uses Spring Boot 4.2.0. All four services target Java 17 and have independent Maven POMs under this directory. The repository-root POM aggregates all four services for one build and test command.
 
 ## Ports
 

@@ -6,18 +6,18 @@ This document describes the Inventory Spring Boot service routes and request/res
 
 From the repository root, create the `inventory_db` PostgreSQL database if it does not exist, then start Inventory:
 
-```bash
-export SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/inventory_db'
-export SPRING_DATASOURCE_USERNAME='postgres'
-export SPRING_DATASOURCE_PASSWORD='your-local-postgres-password'
-export INVENTORY_INTERNAL_TOKEN='your-local-inventory-token'
-bash ./mvnw -f darkstore-backend/Inventory/pom.xml spring-boot:run
+```powershell
+$env:SPRING_DATASOURCE_URL = 'jdbc:postgresql://localhost:5432/inventory_db'
+$env:SPRING_DATASOURCE_USERNAME = 'postgres'
+$env:SPRING_DATASOURCE_PASSWORD = '<your-local-postgres-password>'
+$env:INVENTORY_INTERNAL_TOKEN = '<your-local-inventory-token>'
+.\mvnw.cmd -f darkstore-backend\Inventory\pom.xml spring-boot:run
 ```
 
 Check that it is ready:
 
-```bash
-curl http://localhost:8082/actuator/health
+```powershell
+Invoke-RestMethod http://localhost:8082/actuator/health
 ```
 
 Inventory targets Java 17 and listens on `http://localhost:8082` by default. To run its automated tests without PostgreSQL, use the test profile configured with H2:

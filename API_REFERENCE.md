@@ -504,13 +504,13 @@ bash mvnw clean compile -DskipTests
 Run:
 
 ```bash
-bash mvnw spring-boot:run
+bash mvnw -f darkstore-backend/order-service/pom.xml spring-boot:run
 ```
 
 On Windows PowerShell:
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd -f darkstore-backend\order-service\pom.xml spring-boot:run
 ```
 
 ---

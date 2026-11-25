@@ -57,72 +57,82 @@ Invalid status transitions are rejected as `INVALID_STATUS_TRANSITION`.
 ### Prerequisites
 
 - Java 17 (all backend services target Java 17)
-- Maven 3.9+
+- Maven 3.9+ (the repository Maven Wrapper is included)
 - PostgreSQL running on `localhost:5432`
 - Postman Desktop for the API workflow
 
-All commands below are run from the repository root. Start PostgreSQL first. Create the databases once; the `\gexec` statements skip databases that already exist:
+The root `pom.xml` is the Maven aggregator for all four independent applications. Run this from the repository root to compile and test every service:
 
-```bash
-sudo -u postgres psql
+```powershell
+.\mvnw.cmd test
 ```
 
-In the `psql` prompt, set a local password for the `postgres` role and create the service databases:
+Start PostgreSQL first and create `auth_db`, `inventory_db`, and `quick_commerce_db` if they do not already exist. In PowerShell, connect with:
+
+```powershell
+psql -U postgres -h localhost -p 5432
+```
+
+Then create any missing databases in the `psql` prompt:
 
 ```sql
-\password postgres
-SELECT 'CREATE DATABASE auth_db OWNER postgres' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'auth_db') \gexec
-SELECT 'CREATE DATABASE inventory_db OWNER postgres' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'inventory_db') \gexec
-SELECT 'CREATE DATABASE quick_commerce_db OWNER postgres' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'quick_commerce_db') \gexec
+CREATE DATABASE auth_db;
+CREATE DATABASE inventory_db;
+CREATE DATABASE quick_commerce_db;
 \q
 ```
 
-Use the password you entered for `\password postgres` in the relevant service terminal below. These are local-development credentials; do not reuse them in production or commit real credentials to the repository.
+Use your local PostgreSQL password in the service terminals. Do not commit credentials or tokens.
 
-Open four terminals at the repository root. Export the variables and start the application in each terminal; leave each terminal open while testing.
+Open four PowerShell terminals at the repository root. Set the required environment variables and start one service in each terminal; leave them open while testing.
 
 **Terminal 1 — Auth Service (port 8081):**
 
-```bash
-export DB_PASSWORD='your-local-postgres-password'
-export JWT_SECRET='darkstore-dev-secret-key-change-in-production-0123456789'
-export ADMIN_PASSWORD='Admin@123'
-mvn -f darkstore-backend/auth-service/pom.xml spring-boot:run
+```powershell
+$env:DB_PASSWORD = '<your-local-postgres-password>'
+$env:JWT_SECRET = '<one-shared-local-jwt-secret>'
+$env:ADMIN_PASSWORD = '<your-local-admin-password>'
+.\mvnw.cmd -f darkstore-backend\auth-service\pom.xml spring-boot:run
 ```
 
 **Terminal 2 — Catalog and Inventory Service (port 8082):**
 
-```bash
-export SPRING_DATASOURCE_PASSWORD='your-local-postgres-password'
-export INVENTORY_INTERNAL_TOKEN='darkstore-local-inventory-token-123'
-mvn -f darkstore-backend/Inventory/pom.xml spring-boot:run
+```powershell
+$env:SPRING_DATASOURCE_PASSWORD = '<your-local-postgres-password>'
+$env:INVENTORY_INTERNAL_TOKEN = '<one-shared-local-inventory-token>'
+.\mvnw.cmd -f darkstore-backend\Inventory\pom.xml spring-boot:run
 ```
 
 **Terminal 3 — Cart-Order Service (port 8083):**
 
-```bash
-export DB_PASSWORD='your-local-postgres-password'
-export INVENTORY_INTERNAL_TOKEN='darkstore-local-inventory-token-123'
-mvn spring-boot:run
+```powershell
+$env:DB_PASSWORD = '<your-local-postgres-password>'
+$env:INVENTORY_INTERNAL_TOKEN = '<same-inventory-token-as-terminal-2>'
+.\mvnw.cmd -f darkstore-backend\order-service\pom.xml spring-boot:run
 ```
 
 **Terminal 4 — API Gateway (port 8080):**
 
-```bash
-export JWT_SECRET='darkstore-dev-secret-key-change-in-production-0123456789'
-mvn -f darkstore-backend/api-gateway/pom.xml spring-boot:run
+```powershell
+$env:JWT_SECRET = '<same-jwt-secret-as-terminal-1>'
+.\mvnw.cmd -f darkstore-backend\api-gateway\pom.xml spring-boot:run
 ```
 
-The JWT secret must be identical in Auth and Gateway. The internal token must be identical in Inventory, Cart-Order, and the Postman environment. The URLs default to localhost ports `8081`–`8083`; the Gateway is the client entry point on `8080`. Wait for each service's startup message before sending requests. Inventory health can be checked with:
+Run each command from the repository root and set the variables in that terminal as shown; this avoids depending on the process working directory to find `.env`. Wait for each startup message. Client/Postman requests go through the Gateway at `http://localhost:8080`; the JWT secret and Inventory internal token must match across their respective services.
 
-```bash
-curl http://localhost:8082/actuator/health
+Check listeners in PowerShell:
+
+```powershell
+Get-NetTCPConnection -State Listen |
+    Where-Object { $_.LocalPort -in 5432, 8080, 8081, 8082, 8083 } |
+    Sort-Object LocalPort |
+    Select-Object LocalAddress, LocalPort, OwningProcess
 ```
 
-To confirm all applications are listening on Linux:
+Check Inventory health with:
 
-```bash
-ss -lntp | grep -E ':5432|:8080|:8081|:8082|:8083'
+```powershell
+Invoke-RestMethod http://localhost:8082/actuator/health
 ```
 
 ## Product diagrams
@@ -147,6 +157,6 @@ This sequence starts when the Flutter app sends `POST /orders` through the gatew
 
 ## Postman: all services
 
-Import [the all-services collection](./postman/DarkStore-All-Services.postman_collection.json) and [the local environment](./postman/DarkStore-Local.postman_environment.json). Start PostgreSQL and the four applications using the [local run instructions](#run-locally). The local environment uses the development admin password `Admin@123`; change it if Auth is configured with a different `ADMIN_PASSWORD`. Set `inventoryInternalToken` to the same value configured in Inventory and Cart-Order (the example above is `darkstore-local-inventory-token-123`).
+Import [the all-services collection](./postman/DarkStore-All-Services.postman_collection.json) and [the local environment](./postman/DarkStore-Local.postman_environment.json). Start PostgreSQL and the four applications using the [local run instructions](#run-locally). Set `adminPassword` to the password configured for Auth and `inventoryInternalToken` to the same value configured in Inventory and Cart-Order.
 
 Run the full collection in order with Postman's Collection Runner, or run the `9. Catalog CRUD` folder from its first request (`Login admin for catalog CRUD`). Do not send dependent catalog requests individually: they require the login and IDs created earlier in the folder. The collection covers the CRUD actions exposed by Auth, catalog, inventory, and cart APIs, plus checkout, payment, cancellation, fulfillment, and inventory reservation interactions. It creates persistent local test data; use a development database, not production. The API does not expose delete operations for users, stores, orders, or payments, so the collection does not invent them.

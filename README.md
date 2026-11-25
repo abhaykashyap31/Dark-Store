@@ -57,24 +57,29 @@ Invalid status transitions are rejected as `INVALID_STATUS_TRANSITION`.
 ### Prerequisites
 
 - Java 17 (all backend services target Java 17)
-- Maven 3.9+ (the repository Maven Wrapper is included)
+- Maven is optional because the Maven Wrapper is included
 - PostgreSQL running on `localhost:5432`
 - Postman Desktop for the API workflow
 
 The root `pom.xml` is the Maven aggregator for all four independent applications. Run this from the repository root to compile and test every service:
 
+**Linux/macOS:**
+```bash
+bash ./mvnw test
+```
+
+**Windows PowerShell:**
 ```powershell
 .\mvnw.cmd test
 ```
 
-Start PostgreSQL first and create `auth_db`, `inventory_db`, and `quick_commerce_db` if they do not already exist. In PowerShell, connect with:
+Start PostgreSQL first and create `auth_db`, `inventory_db`, and `quick_commerce_db` if they do not already exist.
 
-```powershell
+```bash
 psql -U postgres -h localhost -p 5432
 ```
 
-Then create any missing databases in the `psql` prompt:
-
+In the `psql` prompt, create any missing databases:
 ```sql
 CREATE DATABASE auth_db;
 CREATE DATABASE inventory_db;
@@ -82,57 +87,168 @@ CREATE DATABASE quick_commerce_db;
 \q
 ```
 
-Use your local PostgreSQL password in the service terminals. Do not commit credentials or tokens.
+### Configure environment variables
 
-Open four PowerShell terminals at the repository root. Set the required environment variables and start one service in each terminal; leave them open while testing.
+From the repository root, copy the example environment file:
+
+**Linux/macOS:**
+```bash
+cp .env.example .env
+```
+
+**Windows PowerShell:**
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and replace every placeholder with a local value:
+
+```properties
+DB_URL=jdbc:postgresql://localhost:5432/auth_db
+DB_USERNAME=postgres
+DB_PASSWORD=your-local-postgres-password
+
+JWT_SECRET=your-generated-secret-at-least-32-characters
+INVENTORY_INTERNAL_TOKEN=your-generated-inventory-token
+
+ADMIN_PASSWORD=your-local-admin-password
+AUTH_SERVICE_URL=http://localhost:8081
+INVENTORY_SERVICE_URL=http://localhost:8082
+ORDER_SERVICE_URL=http://localhost:8083
+```
+
+Generate secrets locally:
+
+```bash
+openssl rand -base64 32
+openssl rand -hex 32
+```
+
+Use the Base64 result as `JWT_SECRET` in both Auth and the Gateway. Use the hex result as `INVENTORY_INTERNAL_TOKEN` in Inventory and Cart/Order. Keep the Inventory and Cart/Order value identical.
+
+Never use the placeholder text as a real secret, and never commit `.env`. If secrets are already shared or committed, rotate them.
+
+The Auth, Inventory, and Gateway services do not automatically load `.env`; load it into each terminal before starting them.
+
+### Start the services
+
+Open four terminals at the repository root and leave each process running. Start Auth, Inventory, and Cart/Order first, then start the Gateway.
 
 **Terminal 1 — Auth Service (port 8081):**
 
+**Linux/macOS:**
+```bash
+set -a; source ./.env; set +a
+bash ./mvnw -f darkstore-backend/auth-service/pom.xml spring-boot:run
+```
+
+**Windows PowerShell:**
 ```powershell
-$env:DB_PASSWORD = '<your-local-postgres-password>'
-$env:JWT_SECRET = '<one-shared-local-jwt-secret>'
-$env:ADMIN_PASSWORD = '<your-local-admin-password>'
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^(?!#)([^=]+)=(.*)$') {
+    [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
+  }
+}
 .\mvnw.cmd -f darkstore-backend\auth-service\pom.xml spring-boot:run
 ```
 
 **Terminal 2 — Catalog and Inventory Service (port 8082):**
 
+**Linux/macOS:**
+```bash
+set -a; source ./.env; set +a
+export SPRING_DATASOURCE_PASSWORD="$DB_PASSWORD"
+bash ./mvnw -f darkstore-backend/Inventory/pom.xml spring-boot:run
+```
+
+**Windows PowerShell:**
 ```powershell
-$env:SPRING_DATASOURCE_PASSWORD = '<your-local-postgres-password>'
-$env:INVENTORY_INTERNAL_TOKEN = '<one-shared-local-inventory-token>'
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^(?!#)([^=]+)=(.*)$') {
+    [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
+  }
+}
+$env:SPRING_DATASOURCE_PASSWORD = $env:DB_PASSWORD
 .\mvnw.cmd -f darkstore-backend\Inventory\pom.xml spring-boot:run
 ```
 
 **Terminal 3 — Cart-Order Service (port 8083):**
 
+**Linux/macOS:**
+```bash
+set -a; source ./.env; set +a
+bash ./mvnw -f darkstore-backend/order-service/pom.xml spring-boot:run
+```
+
+**Windows PowerShell:**
 ```powershell
-$env:DB_PASSWORD = '<your-local-postgres-password>'
-$env:INVENTORY_INTERNAL_TOKEN = '<same-inventory-token-as-terminal-2>'
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^(?!#)([^=]+)=(.*)$') {
+    [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
+  }
+}
 .\mvnw.cmd -f darkstore-backend\order-service\pom.xml spring-boot:run
 ```
 
 **Terminal 4 — API Gateway (port 8080):**
 
+**Linux/macOS:**
+```bash
+set -a; source ./.env; set +a
+bash ./mvnw -f darkstore-backend/api-gateway/pom.xml spring-boot:run
+```
+
+**Windows PowerShell:**
 ```powershell
-$env:JWT_SECRET = '<same-jwt-secret-as-terminal-1>'
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^(?!#)([^=]+)=(.*)$') {
+    [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
+  }
+}
 .\mvnw.cmd -f darkstore-backend\api-gateway\pom.xml spring-boot:run
 ```
 
-Run each command from the repository root and set the variables in that terminal as shown; this avoids depending on the process working directory to find `.env`. Wait for each startup message. Client/Postman requests go through the Gateway at `http://localhost:8080`; the JWT secret and Inventory internal token must match across their respective services.
+Wait for each startup message. Client/Postman requests go through the Gateway at `http://localhost:8080`. The JWT secret must match in Auth and Gateway; the Inventory token must match in Inventory and Cart/Order.
 
-Check listeners in PowerShell:
+### Verify the services
 
+**Linux/macOS:**
+```bash
+curl -f http://localhost:8082/actuator/health
+curl -f http://localhost:8083/actuator/health
+curl -I http://localhost:8080/admin
+```
+
+Inventory and order health endpoints should return `200` with `"status":"UP"`. The admin page through the Gateway should return `200`.
+
+For gateway login verification:
+```bash
+curl -i -X POST http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@darkstore.com","password":"your-local-admin-password"}'
+```
+Successful login returns `200` and an access token.
+
+**Windows PowerShell:**
+```powershell
+Invoke-RestMethod http://localhost:8082/actuator/health
+Invoke-RestMethod http://localhost:8083/actuator/health
+Invoke-WebRequest http://localhost:8080/admin
+```
+
+Check the expected listeners:
+
+**Linux/macOS:**
+```bash
+ss -ltn | grep -E ':(5432|8080|8081|8082|8083)[[:space:]]'
+```
+
+**Windows PowerShell:**
 ```powershell
 Get-NetTCPConnection -State Listen |
     Where-Object { $_.LocalPort -in 5432, 8080, 8081, 8082, 8083 } |
     Sort-Object LocalPort |
     Select-Object LocalAddress, LocalPort, OwningProcess
-```
-
-Check Inventory health with:
-
-```powershell
-Invoke-RestMethod http://localhost:8082/actuator/health
 ```
 
 ## Product diagrams

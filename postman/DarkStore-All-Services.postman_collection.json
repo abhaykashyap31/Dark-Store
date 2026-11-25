@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Dark Store - Complete Microservices E2E",
-    "description": "Run the full collection sequentially with Postman Collection Runner. Configure adminPassword and inventoryInternalToken in the selected environment. Start PostgreSQL and Auth (8081), Inventory (8082), Order (8083), then Gateway (8080). All public API requests use the Gateway; one token check calls Inventory directly. The run exercises Auth, user/store CRUD, Inventory catalog/stock APIs, Cart, Checkout, Order lifecycle, COD, payment failure, cancellation, refund, and Order-to-Inventory stock synchronization.",
+    "name": "Dark Store - All Services CRUD and E2E",
+    "description": "Run sequentially with Postman Collection Runner after starting PostgreSQL, Auth (8081), Inventory (8082), Order (8083), and Gateway (8080). Set adminPassword and inventoryInternalToken in the selected environment. Public API requests use the Gateway; an internal-token check calls Inventory directly. Covers supported Auth, user, address, store, catalog, inventory, cart, order, and payment operations plus checkout, reservation, cancellation, fulfillment, and Order-to-Inventory synchronization. Delete operations are included only where the API exposes them.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -2179,7 +2179,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set('customerEmail', 'inventory-customer-' + Date.now() + '@test.com');"
+                  "pm.collectionVariables.set('inventoryCustomerEmail', 'inventory-customer-' + Date.now() + '@test.com');"
                 ]
               }
             },
@@ -2290,7 +2290,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2308,8 +2308,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('admin login succeeds', () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set('accessToken', pm.response.json().accessToken);"
+                  "const body = pm.response.json();",
+                  "const validAdminLogin = pm.response.code === 200 && typeof body.accessToken === 'string' && body.accessToken.length > 0 && body.user && body.user.role === 'ADMIN';",
+                  "pm.test('admin login returns an ADMIN access token', () => pm.expect(validAdminLogin).to.eql(true));",
+                  "if (validAdminLogin) { pm.collectionVariables.set('accessToken', body.accessToken); } else { pm.collectionVariables.unset('accessToken'); }"
                 ]
               }
             }
@@ -2320,6 +2322,45 @@
     {
       "name": "9. Catalog CRUD",
       "item": [
+        {
+          "name": "Login admin for catalog CRUD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const validAdminLogin = pm.response.code === 200 && typeof body.accessToken === 'string' && body.accessToken.length > 0 && body.user && body.user.role === 'ADMIN';",
+                  "pm.test('admin login returns an ADMIN access token', () => pm.expect(validAdminLogin).to.eql(true));",
+                  "if (validAdminLogin) { pm.collectionVariables.set('accessToken', body.accessToken); } else { pm.collectionVariables.unset('accessToken'); }"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "List categories",
           "request": {
@@ -4059,7 +4100,7 @@
           ]
         },
         {
-          "name": "Move order to preparation",
+          "name": "Move order to preparation (order status endpoint)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -4068,7 +4109,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/manager/orders/{{orderId}}/status",
+            "url": "{{baseUrl}}/orders/{{orderId}}/status",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"PREPARING\"\n}",

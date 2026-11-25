@@ -52,6 +52,79 @@ An order can move to `CANCELLED` from `CONFIRMED` or `PICKING`. If stock reserva
 
 Invalid status transitions are rejected as `INVALID_STATUS_TRANSITION`.
 
+## Run locally
+
+### Prerequisites
+
+- Java 17 (all backend services target Java 17)
+- Maven 3.9+
+- PostgreSQL running on `localhost:5432`
+- Postman Desktop for the API workflow
+
+All commands below are run from the repository root. Start PostgreSQL first. Create the databases once; the `\gexec` statements skip databases that already exist:
+
+```bash
+sudo -u postgres psql
+```
+
+In the `psql` prompt, set a local password for the `postgres` role and create the service databases:
+
+```sql
+\password postgres
+SELECT 'CREATE DATABASE auth_db OWNER postgres' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'auth_db') \gexec
+SELECT 'CREATE DATABASE inventory_db OWNER postgres' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'inventory_db') \gexec
+SELECT 'CREATE DATABASE quick_commerce_db OWNER postgres' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'quick_commerce_db') \gexec
+\q
+```
+
+Use the password you entered for `\password postgres` in the relevant service terminal below. These are local-development credentials; do not reuse them in production or commit real credentials to the repository.
+
+Open four terminals at the repository root. Export the variables and start the application in each terminal; leave each terminal open while testing.
+
+**Terminal 1 — Auth Service (port 8081):**
+
+```bash
+export DB_PASSWORD='your-local-postgres-password'
+export JWT_SECRET='darkstore-dev-secret-key-change-in-production-0123456789'
+export ADMIN_PASSWORD='Admin@123'
+mvn -f darkstore-backend/auth-service/pom.xml spring-boot:run
+```
+
+**Terminal 2 — Catalog and Inventory Service (port 8082):**
+
+```bash
+export SPRING_DATASOURCE_PASSWORD='your-local-postgres-password'
+export INVENTORY_INTERNAL_TOKEN='darkstore-local-inventory-token-123'
+mvn -f darkstore-backend/Inventory/pom.xml spring-boot:run
+```
+
+**Terminal 3 — Cart-Order Service (port 8083):**
+
+```bash
+export DB_PASSWORD='your-local-postgres-password'
+export INVENTORY_INTERNAL_TOKEN='darkstore-local-inventory-token-123'
+mvn spring-boot:run
+```
+
+**Terminal 4 — API Gateway (port 8080):**
+
+```bash
+export JWT_SECRET='darkstore-dev-secret-key-change-in-production-0123456789'
+mvn -f darkstore-backend/api-gateway/pom.xml spring-boot:run
+```
+
+The JWT secret must be identical in Auth and Gateway. The internal token must be identical in Inventory, Cart-Order, and the Postman environment. The URLs default to localhost ports `8081`–`8083`; the Gateway is the client entry point on `8080`. Wait for each service's startup message before sending requests. Inventory health can be checked with:
+
+```bash
+curl http://localhost:8082/actuator/health
+```
+
+To confirm all applications are listening on Linux:
+
+```bash
+ss -lntp | grep -E ':5432|:8080|:8081|:8082|:8083'
+```
+
 ## Product diagrams
 
 ### System architecture
@@ -71,3 +144,9 @@ This diagram shows normal fulfillment, cancellation paths, reservation failure, 
 ![Dark Store order placement sequence](Order-placement-flow.drawio.png)
 
 This sequence starts when the Flutter app sends `POST /orders` through the gateway. The order service calculates prices, validates inventory, saves the order, reserves stock, and returns the final status and timeline. The app refreshes order status every 10-15 seconds; a manager or inventory confirmation action advances or confirms the relevant workflow.
+
+## Postman: all services
+
+Import [the all-services collection](./postman/DarkStore-All-Services.postman_collection.json) and [the local environment](./postman/DarkStore-Local.postman_environment.json). Start PostgreSQL and the four applications using the [local run instructions](#run-locally). The local environment uses the development admin password `Admin@123`; change it if Auth is configured with a different `ADMIN_PASSWORD`. Set `inventoryInternalToken` to the same value configured in Inventory and Cart-Order (the example above is `darkstore-local-inventory-token-123`).
+
+Run the full collection in order with Postman's Collection Runner, or run the `9. Catalog CRUD` folder from its first request (`Login admin for catalog CRUD`). Do not send dependent catalog requests individually: they require the login and IDs created earlier in the folder. The collection covers the CRUD actions exposed by Auth, catalog, inventory, and cart APIs, plus checkout, payment, cancellation, fulfillment, and inventory reservation interactions. It creates persistent local test data; use a development database, not production. The API does not expose delete operations for users, stores, orders, or payments, so the collection does not invent them.

@@ -36,6 +36,8 @@ class InventoryServiceTest {
     @Autowired
     private StoreInventoryRepository storeInventory;
     @Autowired
+    private com.darkstore.inventory.repository.StockMovementRepository stockMovements;
+    @Autowired
     private MockMvc mockMvc;
 
     @Test
@@ -56,10 +58,14 @@ class InventoryServiceTest {
         assertEquals("CONFIRMED", first.status());
         assertEquals("CONFIRMED", repeated.status());
         assertEquals(7, inventory.getStock(storeId, product.getId()).getAvailable());
+        assertTrue(stockMovements.findByStoreIdAndProductIdOrderByCreatedAtDesc(
+                storeId, product.getId()).isEmpty());
 
         ReserveResponse released = inventory.release(orderId);
         assertEquals("RELEASED", released.status());
         assertEquals(10, inventory.getStock(storeId, product.getId()).getAvailable());
+        assertTrue(stockMovements.findByStoreIdAndProductIdOrderByCreatedAtDesc(
+                storeId, product.getId()).isEmpty());
     }
 
     @Test
@@ -78,6 +84,13 @@ class InventoryServiceTest {
 
         assertEquals(3, stock.getOnHand());
         assertEquals(0, stock.getReserved());
+        var movements = stockMovements.findByStoreIdAndProductIdOrderByCreatedAtDesc(
+                storeId, product.getId());
+        assertEquals(1, movements.size());
+        assertEquals(-2, movements.get(0).getQuantityDelta());
+        assertEquals("SALE", movements.get(0).getType());
+        assertEquals("ORDER", movements.get(0).getReferenceType());
+        assertEquals(orderId, movements.get(0).getReferenceId());
     }
 
     @Test

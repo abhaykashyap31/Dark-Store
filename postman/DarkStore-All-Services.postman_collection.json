@@ -1661,7 +1661,7 @@
                   "const j = pm.response.json();",
                   "pm.test(\"User has storeId\", function () { pm.expect(j.user.storeId).to.not.eql(null); });",
                   "const payload = JSON.parse(atob(j.accessToken.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\")));",
-                  "pm.test(\"JWT has userId, role, storeId\", function () { pm.expect(payload.role).to.eql(\"MANAGER\"); pm.expect(payload.userId).to.be.a(\"number\"); pm.expect(payload.storeId).to.be.a(\"number\"); });",
+                  "pm.test(\"JWT has userId, role, storeId\", function () { pm.expect(payload.role).to.eql(\"MANAGER\"); pm.expect(payload.userId).to.be.a(\"string\"); pm.expect(payload.storeId).to.be.a(\"string\"); });",
                   "pm.collectionVariables.set(\"managerToken\", j.accessToken);",
                   "pm.collectionVariables.set(\"managerRefresh\", j.refreshToken);"
                 ]

@@ -1,4 +1,5 @@
 import 'package:darkstore/placeholders/catalog_api_mock.dart';
+import 'package:darkstore/placeholders/mock_ids.dart';
 import 'package:darkstore/shared/models/product.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -6,8 +7,8 @@ void main() {
   final catalog = CatalogApiMock();
 
   test('products are scoped by store stock and price', () {
-    final s1 = catalog.products(storeId: '1');
-    final s2 = catalog.products(storeId: '2');
+    final s1 = catalog.products(storeId: MockIds.storeKoramangala);
+    final s2 = catalog.products(storeId: MockIds.storeIndiranagar);
 
     final milkS1 = (s1['items'] as List)
         .cast<Map<String, dynamic>>()
@@ -29,12 +30,25 @@ void main() {
   });
 
   test('category filter and product detail work', () {
-    final dairy = catalog.products(storeId: '1', categoryId: 'c_01');
+    final dairy = catalog.products(
+      storeId: MockIds.defaultStore,
+      categoryId: 'c_01',
+    );
     final items = (dairy['items'] as List).cast<Map<String, dynamic>>();
     expect(items.every((p) => p['categoryId'] == 'c_01'), isTrue);
 
-    final detail = catalog.productById(id: 'p_100', storeId: '1');
+    final detail = catalog.productById(
+      id: 'p_100',
+      storeId: MockIds.defaultStore,
+    );
     expect(detail['name'], 'Farm Fresh Milk');
     expect(detail['inStock'], isTrue);
+  });
+
+  test('stores expose line1 / postalCode', () {
+    final stores = (catalog.stores()['items'] as List)
+        .cast<Map<String, dynamic>>();
+    expect(stores.first['line1'], isNotEmpty);
+    expect(stores.first['postalCode'], isNotEmpty);
   });
 }

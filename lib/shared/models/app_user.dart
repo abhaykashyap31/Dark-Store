@@ -12,8 +12,11 @@ class AppUser {
     this.status = 'ACTIVE',
   });
 
+  /// UUID string (API_REFERENCE).
   final String id;
   final String email;
+
+  /// Display name — Gateway field is `fullName`.
   final String name;
   final AppRole role;
   final String? storeId;
@@ -43,7 +46,8 @@ class AppUser {
     return AppUser(
       id: '${json['id'] ?? ''}',
       email: '${json['email'] ?? ''}',
-      name: '${json['name'] ?? json['full_name'] ?? ''}',
+      name:
+          '${json['fullName'] ?? json['full_name'] ?? json['name'] ?? ''}',
       role: AppRole.fromApi(roleRaw),
       storeId: json['storeId']?.toString() ?? json['store_id']?.toString(),
       phone: json['phone']?.toString(),
@@ -53,11 +57,11 @@ class AppUser {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': int.tryParse(id) ?? id,
+        'id': id,
         'email': email,
-        'name': name,
+        'fullName': name,
         'role': role.apiValue,
-        'storeId': storeId == null ? null : (int.tryParse(storeId!) ?? storeId),
+        'storeId': storeId,
         'phone': phone,
         'status': status,
       };

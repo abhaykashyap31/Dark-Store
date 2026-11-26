@@ -1,3 +1,5 @@
+import 'mock_ids.dart';
+
 /// Local mock for Catalog & Inventory Gateway paths.
 class CatalogApiMock {
   static final CatalogApiMock instance = CatalogApiMock._();
@@ -28,25 +30,25 @@ class CatalogApiMock {
 
   static const _seedStores = <Map<String, dynamic>>[
     {
-      'id': 1,
+      'id': MockIds.storeKoramangala,
       'code': 'BLR-KOR',
       'name': 'Koramangala Darkstore',
-      'address': '80 Feet Road, Koramangala',
+      'line1': '80 Feet Road, Koramangala',
       'city': 'Bengaluru',
+      'state': 'Karnataka',
+      'postalCode': '560095',
       'phone': '08040000001',
-      'latitude': 12.9352,
-      'longitude': 77.6245,
       'active': true,
     },
     {
-      'id': 2,
+      'id': MockIds.storeIndiranagar,
       'code': 'BLR-IND',
       'name': 'Indiranagar Darkstore',
-      'address': '100 Feet Road, Indiranagar',
+      'line1': '100 Feet Road, Indiranagar',
       'city': 'Bengaluru',
+      'state': 'Karnataka',
+      'postalCode': '560038',
       'phone': '08040000002',
-      'latitude': 12.9784,
-      'longitude': 77.6408,
       'active': true,
     },
   ];
@@ -201,7 +203,7 @@ class CatalogApiMock {
 
   /// Per-store stock + price overrides (seed).
   static const _seedInventory = <String, Map<String, Map<String, dynamic>>>{
-    '1': {
+    MockIds.storeKoramangala: {
       'p_100': {'price': 55.0, 'stockQty': 42, 'lowStockThreshold': 10},
       'p_101': {'price': 45.0, 'stockQty': 18, 'lowStockThreshold': 8},
       'p_102': {'price': 20.0, 'stockQty': 0, 'lowStockThreshold': 10},
@@ -213,7 +215,7 @@ class CatalogApiMock {
       'p_108': {'price': 28.0, 'stockQty': 50, 'lowStockThreshold': 10},
       // p_109 left out so Manager can demo "Add product" into stock.
     },
-    '2': {
+    MockIds.storeIndiranagar: {
       'p_100': {'price': 58.0, 'stockQty': 10, 'lowStockThreshold': 10},
       'p_101': {'price': 48.0, 'stockQty': 0, 'lowStockThreshold': 8},
       'p_102': {'price': 18.0, 'stockQty': 60, 'lowStockThreshold': 10},
@@ -227,11 +229,9 @@ class CatalogApiMock {
     },
   };
 
+  /// Includes inactive stores (API_REFERENCE: filter on `active` in the app).
   Map<String, dynamic> stores() => {
-        'items': _stores
-            .where((s) => s['active'] != false)
-            .map((s) => Map<String, dynamic>.from(s))
-            .toList(),
+        'items': _stores.map((s) => Map<String, dynamic>.from(s)).toList(),
       };
 
   Map<String, dynamic> categories() => {
@@ -243,7 +243,7 @@ class CatalogApiMock {
     String? categoryId,
     String? query,
   }) {
-    final store = storeId ?? '1';
+    final store = storeId ?? MockIds.defaultStore;
     final inventory = _inventoryByStore[store] ?? const {};
     var items = _catalog.map((product) {
       final stock = inventory[product['id'] as String];
@@ -303,7 +303,7 @@ class CatalogApiMock {
   }
 
   Map<String, dynamic> inventory({String? storeId}) {
-    final store = storeId ?? '1';
+    final store = storeId ?? MockIds.defaultStore;
     final inventory = _inventoryByStore[store] ?? {};
     final items = <Map<String, dynamic>>[];
     for (final product in _catalog) {

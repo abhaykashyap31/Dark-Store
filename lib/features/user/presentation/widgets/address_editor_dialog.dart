@@ -31,6 +31,7 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
   late final TextEditingController _city;
   late final TextEditingController _state;
   late final TextEditingController _postal;
+  late final TextEditingController _country;
   late bool _makeDefault;
   final _formKey = GlobalKey<FormState>();
 
@@ -44,8 +45,9 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
     _line1 = TextEditingController(text: initial?.line1 ?? '');
     _line2 = TextEditingController(text: initial?.line2 ?? '');
     _city = TextEditingController(text: initial?.city ?? 'Bengaluru');
-    _state = TextEditingController(text: initial?.state ?? 'KA');
+    _state = TextEditingController(text: initial?.state ?? 'Karnataka');
     _postal = TextEditingController(text: initial?.postalCode ?? '');
+    _country = TextEditingController(text: initial?.country ?? 'India');
     _makeDefault = initial?.defaultAddress ?? !_isEdit;
   }
 
@@ -57,6 +59,7 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
     _city.dispose();
     _state.dispose();
     _postal.dispose();
+    _country.dispose();
     super.dispose();
   }
 
@@ -71,6 +74,7 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
         city: _city.text.trim(),
         state: _state.text.trim(),
         postalCode: _postal.text.trim(),
+        country: _country.text.trim().isEmpty ? 'India' : _country.text.trim(),
         defaultAddress: _makeDefault,
       ),
     );
@@ -160,17 +164,24 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
                       TextFormField(
                         controller: _postal,
                         decoration: const InputDecoration(
-                          labelText: 'Pincode',
+                          labelText: 'Postal code',
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Required';
                           }
-                          if (value.trim().length > 10) {
-                            return 'Max 10 characters';
+                          if (value.trim().length > 20) {
+                            return 'Max 20 characters';
                           }
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _country,
+                        decoration: const InputDecoration(
+                          labelText: 'Country',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       CheckboxListTile(

@@ -5,21 +5,27 @@ class Store {
     required this.code,
     required this.city,
     required this.active,
-    this.address,
+    this.line1,
+    this.state,
+    this.postalCode,
     this.phone,
-    this.latitude,
-    this.longitude,
   });
 
+  /// UUID string.
   final String id;
   final String name;
   final String code;
   final String city;
   final bool active;
-  final String? address;
+
+  /// Street / locality (Gateway field `line1`).
+  final String? line1;
+  final String? state;
+  final String? postalCode;
   final String? phone;
-  final double? latitude;
-  final double? longitude;
+
+  /// Convenience for older UI that showed a single address line.
+  String? get address => line1;
 
   factory Store.fromJson(Map<String, dynamic> json) {
     return Store(
@@ -28,33 +34,34 @@ class Store {
       code: '${json['code'] ?? ''}',
       city: '${json['city'] ?? ''}',
       active: json['active'] as bool? ?? true,
-      address: json['address']?.toString(),
+      line1: json['line1']?.toString() ?? json['address']?.toString(),
+      state: json['state']?.toString(),
+      postalCode:
+          json['postalCode']?.toString() ?? json['postal_code']?.toString(),
       phone: json['phone']?.toString(),
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': int.tryParse(id) ?? id,
+        'id': id,
         'name': name,
         'code': code,
         'city': city,
         'active': active,
-        'address': address,
+        'line1': line1,
+        'state': state,
+        'postalCode': postalCode,
         'phone': phone,
-        'latitude': latitude,
-        'longitude': longitude,
       };
 
   Map<String, dynamic> toRequestBody() => {
         'code': code,
         'name': name,
-        'address': address,
+        'line1': line1,
         'city': city,
+        'state': state,
+        'postalCode': postalCode,
         'phone': phone,
-        'latitude': latitude,
-        'longitude': longitude,
         'active': active,
       };
 }

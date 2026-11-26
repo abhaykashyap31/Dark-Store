@@ -1,12 +1,13 @@
 import '../core/constants/app_role.dart';
+import 'mock_ids.dart';
 
 /// Local mock for Auth & User Gateway paths (API_REFERENCE.md shapes).
 ///
 /// Demo accounts:
 /// - user@darkstore.com / password → CUSTOMER
 /// - admin@darkstore.com / Admin@123 → ADMIN
-/// - manager@darkstore.com / password → MANAGER (storeId 1)
-/// - rider@darkstore.com / password → RIDER (storeId 1)
+/// - manager@darkstore.com / password → MANAGER (Koramangala store)
+/// - rider@darkstore.com / password → RIDER (Koramangala store)
 /// - inactive@darkstore.com / password → CUSTOMER DISABLED
 class AuthApiMock {
   static final AuthApiMock instance = AuthApiMock._();
@@ -23,45 +24,45 @@ class AuthApiMock {
 
   static const _seedUsers = <String, Map<String, dynamic>>{
     'user@darkstore.com': {
-      'id': 7,
+      'id': MockIds.userCustomer,
       'email': 'user@darkstore.com',
-      'name': 'Asha Customer',
+      'fullName': 'Asha Customer',
       'phone': '9000000001',
       'role': 'CUSTOMER',
       'storeId': null,
       'status': 'ACTIVE',
     },
     'admin@darkstore.com': {
-      'id': 1,
+      'id': MockIds.userAdmin,
       'email': 'admin@darkstore.com',
-      'name': 'Platform Admin',
+      'fullName': 'Platform Admin',
       'phone': '9000000002',
       'role': 'ADMIN',
       'storeId': null,
       'status': 'ACTIVE',
     },
     'manager@darkstore.com': {
-      'id': 10,
+      'id': MockIds.userManager,
       'email': 'manager@darkstore.com',
-      'name': 'Store Manager',
+      'fullName': 'Store Manager',
       'phone': '9000000010',
       'role': 'MANAGER',
-      'storeId': 1,
+      'storeId': MockIds.defaultStore,
       'status': 'ACTIVE',
     },
     'rider@darkstore.com': {
-      'id': 20,
+      'id': MockIds.userRider,
       'email': 'rider@darkstore.com',
-      'name': 'Delivery Rider',
+      'fullName': 'Delivery Rider',
       'phone': '9000000020',
       'role': 'RIDER',
-      'storeId': 1,
+      'storeId': MockIds.defaultStore,
       'status': 'ACTIVE',
     },
     'inactive@darkstore.com': {
-      'id': 99,
+      'id': MockIds.userInactive,
       'email': 'inactive@darkstore.com',
-      'name': 'Inactive User',
+      'fullName': 'Inactive User',
       'phone': '9000000099',
       'role': 'CUSTOMER',
       'storeId': null,
@@ -78,35 +79,41 @@ class AuthApiMock {
     'inactive@darkstore.com': 'password',
   };
   final Map<String, List<Map<String, dynamic>>> _addresses = {
-    '7': [
+    MockIds.userCustomer: [
       {
-        'id': 3,
+        'id': MockIds.addressHome,
         'label': 'Home',
         'line1': '12 MG Road',
         'line2': 'Near Metro',
         'city': 'Bengaluru',
-        'pincode': '560001',
-        'latitude': 12.9716,
-        'longitude': 77.5946,
-        'isDefault': true,
+        'state': 'Karnataka',
+        'postalCode': '560001',
+        'country': 'India',
+        'defaultAddress': true,
       },
       {
-        'id': 4,
+        'id': MockIds.addressOffice,
         'label': 'Office',
         'line1': '42 Indiranagar 100 Feet Rd',
         'line2': '',
         'city': 'Bengaluru',
-        'pincode': '560038',
-        'latitude': 12.9784,
-        'longitude': 77.6408,
-        'isDefault': false,
+        'state': 'Karnataka',
+        'postalCode': '560038',
+        'country': 'India',
+        'defaultAddress': false,
       },
     ],
   };
 
   Map<String, dynamic>? _currentUser;
-  int _nextUserId = 100;
-  int _nextAddressId = 10;
+  int _userSeq = 100;
+  int _addressSeq = 10;
+
+  String _nextUserId() =>
+      '00000000-0000-4000-8000-${(_userSeq++).toString().padLeft(12, '0')}';
+
+  String _nextAddressId() =>
+      '00000000-0000-4000-a000-${(_addressSeq++).toString().padLeft(12, '0')}';
 
   /// Register returns a User only (no tokens). Mock accepts optional [role]
   /// so the Register tab can open Admin / Manager / Rider UIs; live Gateway
@@ -120,7 +127,10 @@ class AuthApiMock {
   }) {
     final normalized = email.trim().toLowerCase();
     if (normalized.isEmpty || password.isEmpty || name.trim().isEmpty) {
-      throw Exception('Name, email, and password are required');
+      throw Exception('fullName, email, and password are required');
+    }
+    if (name.trim().length > 100) {
+      throw Exception('fullName size must be between 1 and 100');
     }
     if (password.length < 8 || password.length > 72) {
       throw Exception('password size must be between 8 and 72');
@@ -134,12 +144,12 @@ class AuthApiMock {
         parsed == AppRole.manager || parsed == AppRole.rider;
 
     final user = <String, dynamic>{
-      'id': _nextUserId++,
+      'id': _nextUserId(),
       'email': normalized,
-      'name': name.trim(),
+      'fullName': name.trim(),
       'phone': phone?.trim(),
       'role': parsed.apiValue,
-      'storeId': needsStore ? 1 : null,
+      'storeId': needsStore ? MockIds.defaultStore : null,
       'status': 'ACTIVE',
     };
 
@@ -201,11 +211,12 @@ class AuthApiMock {
   }) {
     final user = me(authorizationHeader: authorizationHeader);
     final email = user['email'] as String;
-    final name = (body['name'] as String? ?? '').trim();
+    final name =
+        '${body['fullName'] ?? body['name'] ?? ''}'.trim();
     if (name.isEmpty) {
-      throw Exception('name is required');
+      throw Exception('fullName is required');
     }
-    user['name'] = name;
+    user['fullName'] = name;
     // Omitting phone or null clears it (API_REFERENCE).
     if (!body.containsKey('phone') || body['phone'] == null) {
       user['phone'] = null;
@@ -255,19 +266,19 @@ class AuthApiMock {
       throw Exception('role must be MANAGER or RIDER');
     }
     if (normalized.isEmpty || password.isEmpty || name.trim().isEmpty) {
-      throw Exception('Name, email, and password are required');
+      throw Exception('fullName, email, and password are required');
     }
     if (_users.containsKey(normalized)) {
       throw Exception('Email is already registered');
     }
 
     final user = <String, dynamic>{
-      'id': _nextUserId++,
+      'id': _nextUserId(),
       'email': normalized,
-      'name': name.trim(),
+      'fullName': name.trim(),
       'phone': phone?.trim(),
       'role': roleValue,
-      'storeId': int.tryParse(storeId.toString()) ?? storeId,
+      'storeId': storeId.toString(),
       'status': 'ACTIVE',
     };
     _users[normalized] = user;
@@ -329,25 +340,28 @@ class AuthApiMock {
     final user = me(authorizationHeader: authorizationHeader);
     final userId = '${user['id']}';
     final list = _addresses.putIfAbsent(userId, () => []);
+    final makeDefault =
+        body['defaultAddress'] == true || body['isDefault'] == true || list.isEmpty;
     final address = <String, dynamic>{
-      'id': _nextAddressId++,
+      'id': _nextAddressId(),
       'label': body['label'] ?? 'Home',
       'line1': body['line1'] ?? '',
       'line2': body['line2'] ?? '',
       'city': body['city'] ?? '',
-      'pincode': body['pincode'] ?? body['postalCode'] ?? '',
-      'latitude': body['latitude'],
-      'longitude': body['longitude'],
-      'isDefault': body['isDefault'] == true || list.isEmpty,
+      'state': body['state'] ?? '',
+      'postalCode':
+          body['postalCode'] ?? body['postal_code'] ?? body['pincode'] ?? '',
+      'country': body['country'] ?? 'India',
+      'defaultAddress': makeDefault,
     };
     if (address['line1'].toString().trim().isEmpty ||
         address['city'].toString().trim().isEmpty ||
-        address['pincode'].toString().trim().isEmpty) {
-      throw Exception('Address line1, city and pincode are required');
+        address['postalCode'].toString().trim().isEmpty) {
+      throw Exception('Address line1, city and postalCode are required');
     }
-    if (address['isDefault'] == true) {
+    if (makeDefault) {
       for (final existing in list) {
-        existing['isDefault'] = false;
+        existing['defaultAddress'] = false;
       }
     }
     list.add(address);
@@ -367,32 +381,33 @@ class AuthApiMock {
       throw Exception('Address not found');
     }
     final existing = list[index];
+    final wantDefault = body.containsKey('defaultAddress')
+        ? body['defaultAddress'] == true
+        : body.containsKey('isDefault')
+            ? body['isDefault'] == true
+            : existing['defaultAddress'] == true;
     final updated = <String, dynamic>{
       ...existing,
       'label': body['label'] ?? existing['label'],
       'line1': body['line1'] ?? existing['line1'],
       'line2': body['line2'] ?? existing['line2'],
       'city': body['city'] ?? existing['city'],
-      'pincode':
-          body['pincode'] ?? body['postalCode'] ?? existing['pincode'],
-      'latitude': body.containsKey('latitude')
-          ? body['latitude']
-          : existing['latitude'],
-      'longitude': body.containsKey('longitude')
-          ? body['longitude']
-          : existing['longitude'],
-      'isDefault': body.containsKey('isDefault')
-          ? body['isDefault'] == true
-          : existing['isDefault'] == true,
+      'state': body['state'] ?? existing['state'],
+      'postalCode': body['postalCode'] ??
+          body['postal_code'] ??
+          body['pincode'] ??
+          existing['postalCode'],
+      'country': body['country'] ?? existing['country'] ?? 'India',
+      'defaultAddress': wantDefault,
     };
     if (updated['line1'].toString().trim().isEmpty ||
         updated['city'].toString().trim().isEmpty ||
-        updated['pincode'].toString().trim().isEmpty) {
-      throw Exception('Address line1, city and pincode are required');
+        updated['postalCode'].toString().trim().isEmpty) {
+      throw Exception('Address line1, city and postalCode are required');
     }
-    if (updated['isDefault'] == true) {
+    if (wantDefault) {
       for (final item in list) {
-        item['isDefault'] = '${item['id']}' == addressId;
+        item['defaultAddress'] = '${item['id']}' == addressId;
       }
     }
     list[index] = updated;
@@ -416,6 +431,8 @@ class AuthApiMock {
 
   void resetForTests() {
     _currentUser = null;
+    _userSeq = 100;
+    _addressSeq = 10;
     _users
       ..clear()
       ..addAll(
@@ -435,15 +452,17 @@ class AuthApiMock {
     _addresses
       ..clear()
       ..addAll({
-        '7': [
+        MockIds.userCustomer: [
           {
-            'id': 3,
+            'id': MockIds.addressHome,
             'label': 'Home',
             'line1': '12 MG Road',
             'line2': 'Near Metro',
             'city': 'Bengaluru',
-            'pincode': '560001',
-            'isDefault': true,
+            'state': 'Karnataka',
+            'postalCode': '560001',
+            'country': 'India',
+            'defaultAddress': true,
           },
         ],
       });

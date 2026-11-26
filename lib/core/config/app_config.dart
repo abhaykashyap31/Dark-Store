@@ -23,13 +23,13 @@ class AppConfig {
   /// When true, Dio uses in-app mock placeholders instead of the Gateway.
   static const bool useMockApis = bool.fromEnvironment(
     'USE_MOCK_APIS',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   /// When true, Dio logs request/response summaries (never tokens in clear).
   static const bool enableApiLogs = bool.fromEnvironment(
     'ENABLE_API_LOGS',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static const int connectTimeoutSeconds = int.fromEnvironment(

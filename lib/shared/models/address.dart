@@ -7,11 +7,11 @@ class Address {
     required this.postalCode,
     this.line2,
     this.state,
-    this.latitude,
-    this.longitude,
+    this.country = 'India',
     this.defaultAddress = false,
   });
 
+  /// UUID string.
   final String id;
   final String label;
   final String line1;
@@ -19,12 +19,11 @@ class Address {
   final String city;
   final String? state;
 
-  /// Gateway field `pincode`.
+  /// Gateway field `postalCode`.
   final String postalCode;
-  final double? latitude;
-  final double? longitude;
+  final String country;
 
-  /// Gateway field `isDefault`.
+  /// Gateway field `defaultAddress`.
   final bool defaultAddress;
 
   factory Address.fromJson(Map<String, dynamic> json) {
@@ -36,25 +35,24 @@ class Address {
       city: '${json['city'] ?? ''}',
       state: json['state']?.toString(),
       postalCode:
-          '${json['pincode'] ?? json['postalCode'] ?? json['postal_code'] ?? ''}',
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      defaultAddress: json['isDefault'] == true ||
-          json['defaultAddress'] == true ||
-          json['default_address'] == true,
+          '${json['postalCode'] ?? json['postal_code'] ?? json['pincode'] ?? ''}',
+      country: '${json['country'] ?? 'India'}',
+      defaultAddress: json['defaultAddress'] == true ||
+          json['default_address'] == true ||
+          json['isDefault'] == true,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': int.tryParse(id) ?? id,
+        'id': id,
         'label': label,
         'line1': line1,
         'line2': line2,
         'city': city,
-        'pincode': postalCode,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        'isDefault': defaultAddress,
+        'state': state,
+        'postalCode': postalCode,
+        'country': country,
+        'defaultAddress': defaultAddress,
       };
 
   /// Body for POST/PUT (no id).
@@ -63,10 +61,10 @@ class Address {
         'line1': line1.trim(),
         if (line2 != null && line2!.trim().isNotEmpty) 'line2': line2!.trim(),
         'city': city.trim(),
-        'pincode': postalCode.trim(),
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        'isDefault': defaultAddress,
+        if (state != null && state!.trim().isNotEmpty) 'state': state!.trim(),
+        'postalCode': postalCode.trim(),
+        'country': country.trim().isEmpty ? 'India' : country.trim(),
+        'defaultAddress': defaultAddress,
       };
 
   String get summary {
@@ -76,6 +74,7 @@ class Address {
       city,
       if (state != null && state!.trim().isNotEmpty) state,
       postalCode,
+      if (country.trim().isNotEmpty) country,
     ].whereType<String>().where((p) => p.trim().isNotEmpty);
     return parts.join(', ');
   }

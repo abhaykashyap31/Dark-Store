@@ -63,7 +63,7 @@ class OrderRepository {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.orders,
         data: {
-          'addressId': int.tryParse(addressId) ?? addressId,
+          'addressId': addressId,
           'paymentMethod': paymentMethod,
         },
       );

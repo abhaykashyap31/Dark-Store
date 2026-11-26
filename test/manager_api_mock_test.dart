@@ -1,6 +1,7 @@
 import 'package:darkstore/core/constants/order_status.dart';
 import 'package:darkstore/placeholders/auth_api_mock.dart';
 import 'package:darkstore/placeholders/catalog_api_mock.dart';
+import 'package:darkstore/placeholders/mock_ids.dart';
 import 'package:darkstore/placeholders/order_api_mock.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,10 +17,10 @@ void main() {
   });
 
   test('manager queue is scoped by storeId', () {
-    final s1 = orders.managerOrders(storeId: '1');
+    final s1 = orders.managerOrders(storeId: MockIds.storeKoramangala);
     expect((s1['items'] as List), isNotEmpty);
 
-    final s2 = orders.managerOrders(storeId: '2');
+    final s2 = orders.managerOrders(storeId: MockIds.storeIndiranagar);
     expect((s2['items'] as List), isEmpty);
   });
 
@@ -27,14 +28,14 @@ void main() {
     final picking = orders.patchManagerStatus(
       orderId: 'o_500',
       toStatus: OrderStatus.picking,
-      storeId: '1',
+      storeId: MockIds.defaultStore,
     );
     expect(picking['status'], OrderStatus.picking);
 
     final packed = orders.patchManagerStatus(
       orderId: 'o_500',
       toStatus: OrderStatus.packed,
-      storeId: '1',
+      storeId: MockIds.defaultStore,
     );
     expect(packed['status'], OrderStatus.packed);
 
@@ -42,17 +43,17 @@ void main() {
       () => orders.patchManagerStatus(
         orderId: 'o_500',
         toStatus: OrderStatus.delivered,
-        storeId: '1',
+        storeId: MockIds.defaultStore,
       ),
       throwsA(isA<Exception>()),
     );
 
-    final rider = auth.listRidersForStore('1').first;
+    final rider = auth.listRidersForStore(MockIds.defaultStore).first;
     final assigned = orders.assignRider(
       orderId: 'o_500',
-      storeId: '1',
+      storeId: MockIds.defaultStore,
       riderId: '${rider['id']}',
-      riderName: '${rider['name']}',
+      riderName: '${rider['fullName'] ?? rider['name']}',
     );
     expect(assigned['status'], OrderStatus.assigned);
     expect('${assigned['assignedRiderId']}', '${rider['id']}');
@@ -60,12 +61,12 @@ void main() {
 
   test('inventory update is store-scoped and drives alerts', () {
     catalog.updateInventory(
-      storeId: '1',
+      storeId: MockIds.defaultStore,
       productId: 'p_100',
       stockQty: 2,
       price: 60,
     );
-    final alerts = catalog.inventoryAlerts(storeId: '1');
+    final alerts = catalog.inventoryAlerts(storeId: MockIds.defaultStore);
     final items = (alerts['items'] as List).cast<Map<String, dynamic>>();
     expect(items.any((i) => i['productId'] == 'p_100'), isTrue);
   });

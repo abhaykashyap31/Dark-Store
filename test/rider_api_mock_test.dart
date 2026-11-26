@@ -1,4 +1,5 @@
 import 'package:darkstore/core/constants/order_status.dart';
+import 'package:darkstore/placeholders/mock_ids.dart';
 import 'package:darkstore/placeholders/order_api_mock.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,10 +11,16 @@ void main() {
   });
 
   test('rider only sees orders assigned to them for their store', () {
-    final mine = orders.riderOrders(storeId: '1', riderId: '20');
+    final mine = orders.riderOrders(
+      storeId: MockIds.defaultStore,
+      riderId: MockIds.userRider,
+    );
     final items = (mine['items'] as List).cast<Map<String, dynamic>>();
     expect(items, isNotEmpty);
-    expect(items.every((o) => o['assignedRiderId'] == '20'), isTrue);
+    expect(
+      items.every((o) => o['assignedRiderId'] == MockIds.userRider),
+      isTrue,
+    );
     expect(
       items.every(
         (o) =>
@@ -23,13 +30,16 @@ void main() {
       isTrue,
     );
 
-    final other = orders.riderOrders(storeId: '1', riderId: '999');
+    final other = orders.riderOrders(
+      storeId: MockIds.defaultStore,
+      riderId: '999',
+    );
     expect((other['items'] as List), isEmpty);
   });
 
   test('missing storeId fails clearly', () {
     expect(
-      () => orders.riderOrders(storeId: '', riderId: '20'),
+      () => orders.riderOrders(storeId: '', riderId: MockIds.userRider),
       throwsA(
         isA<Exception>().having(
           (e) => e.toString(),
@@ -41,7 +51,10 @@ void main() {
   });
 
   test('rider status transitions and COD amount on assigned order', () {
-    final list = orders.riderOrders(storeId: '1', riderId: '20');
+    final list = orders.riderOrders(
+      storeId: MockIds.defaultStore,
+      riderId: MockIds.userRider,
+    );
     final assigned = (list['items'] as List)
         .cast<Map<String, dynamic>>()
         .firstWhere((o) => o['status'] == OrderStatus.assigned);
@@ -50,8 +63,8 @@ void main() {
     final out = orders.patchRiderStatus(
       orderId: assigned['id'] as String,
       toStatus: OrderStatus.outForDelivery,
-      storeId: '1',
-      riderId: '20',
+      storeId: MockIds.defaultStore,
+      riderId: MockIds.userRider,
     );
     expect(out['status'], OrderStatus.outForDelivery);
 
@@ -59,8 +72,8 @@ void main() {
       () => orders.patchRiderStatus(
         orderId: assigned['id'] as String,
         toStatus: OrderStatus.assigned,
-        storeId: '1',
-        riderId: '20',
+        storeId: MockIds.defaultStore,
+        riderId: MockIds.userRider,
       ),
       throwsA(isA<Exception>()),
     );
@@ -68,8 +81,8 @@ void main() {
     final delivered = orders.patchRiderStatus(
       orderId: assigned['id'] as String,
       toStatus: OrderStatus.delivered,
-      storeId: '1',
-      riderId: '20',
+      storeId: MockIds.defaultStore,
+      riderId: MockIds.userRider,
     );
     expect(delivered['status'], OrderStatus.delivered);
     expect(delivered['paymentStatus'], 'COLLECTED');

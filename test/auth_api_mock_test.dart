@@ -1,5 +1,6 @@
 import 'package:darkstore/core/constants/app_role.dart';
 import 'package:darkstore/placeholders/auth_api_mock.dart';
+import 'package:darkstore/placeholders/mock_ids.dart';
 import 'package:darkstore/shared/models/app_user.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +19,7 @@ void main() {
     expect(session.user.role, AppRole.user);
     expect(session.user.role.apiValue, 'CUSTOMER');
     expect(session.expiresIn, 900);
+    expect(session.user.name, 'Asha Customer');
   });
 
   test('admin demo uses Admin@123', () {
@@ -27,18 +29,19 @@ void main() {
     expect(session.user.role, AppRole.admin);
   });
 
-  test('manager and rider carry integer storeId', () {
+  test('manager and rider carry UUID storeId', () {
     final manager = AuthSession.fromJson(
       auth.login(email: 'manager@darkstore.com', password: 'password'),
     ).user;
     expect(manager.role, AppRole.manager);
-    expect(manager.storeId, '1');
+    expect(manager.storeId, MockIds.defaultStore);
 
     final rider = AuthSession.fromJson(
       auth.login(email: 'rider@darkstore.com', password: 'password'),
     ).user;
     expect(rider.role, AppRole.rider);
-    expect(rider.storeId, '1');
+    expect(rider.storeId, MockIds.defaultStore);
+    expect(rider.id, MockIds.userRider);
   });
 
   test('disabled account cannot login', () {
@@ -61,6 +64,7 @@ void main() {
     expect(user.role, AppRole.user);
     expect(user.storeId, isNull);
     expect(user.status, 'ACTIVE');
+    expect(user.name, 'New Customer');
 
     final session = AuthSession.fromJson(
       auth.login(email: 'new.customer@example.com', password: 'Secret@12'),
@@ -75,10 +79,19 @@ void main() {
         password: 'Manager@12',
         name: 'New Manager',
         role: 'MANAGER',
-        storeId: 1,
+        storeId: MockIds.defaultStore,
       ),
     );
     expect(created.role, AppRole.manager);
-    expect(created.storeId, '1');
+    expect(created.storeId, MockIds.defaultStore);
+  });
+
+  test('addresses use postalCode and defaultAddress', () {
+    auth.login(email: 'user@darkstore.com', password: 'password');
+    final list = auth.listAddresses();
+    expect(list, isNotEmpty);
+    expect(list.first['postalCode'], '560001');
+    expect(list.first['defaultAddress'], isTrue);
+    expect(list.first['country'], 'India');
   });
 }

@@ -15,7 +15,7 @@ Everything below goes through the **API Gateway**. Never call ports 8081, 8082 o
 | Roles | `CUSTOMER`, `MANAGER`, `RIDER`, `ADMIN` (always upper-case strings) |
 | Access token life | 15 minutes (`expiresIn` is `900`, in seconds) |
 | Refresh token life | 7 days, **single use** (every refresh returns a new pair) |
-| IDs | integers (`id`, `storeId`) |
+| IDs | UUID strings (`id`, `storeId`) |
 | Test admin | `admin@darkstore.com` / `Admin@123` |
 
 Public endpoints (no header): `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`.
@@ -50,7 +50,7 @@ Network failures (server down, no internet) have **no body**. Handle them separa
 
 ### User
 ```json
-{ "id": 7, "name": "Asha Rao", "email": "asha@example.com", "phone": "9876543210",
+{ "id": "550e8400-e29b-41d4-a716-446655440000", "email": "asha@example.com", "fullName": "Asha Rao", "phone": "9876543210",
   "role": "CUSTOMER", "status": "ACTIVE", "storeId": null }
 ```
 `storeId` is set only for `MANAGER` and `RIDER`. `status` is `ACTIVE` or `DISABLED`. `phone` can be `null`.
@@ -63,25 +63,27 @@ Network failures (server down, no internet) have **no body**. Handle them separa
 
 ### Address
 ```json
-{ "id": 3, "label": "Home", "line1": "12 Marine Drive", "line2": "Flat 4B", "city": "Mumbai",
-  "pincode": "400020", "latitude": 18.943, "longitude": 72.823, "isDefault": true }
+{ "id": "550e8400-e29b-41d4-a716-446655440001", "label": "Home", "line1": "12 Marine Drive",
+  "line2": "Flat 4B", "city": "Mumbai", "state": "Maharashtra", "postalCode": "400020",
+  "country": "India", "defaultAddress": true }
 ```
 
 ### Store
 ```json
-{ "id": 1, "code": "DS-BOM-01", "name": "Andheri Dark Store", "address": "Link Road, Andheri West",
-  "city": "Mumbai", "phone": "02212345678", "latitude": 19.1364, "longitude": 72.8296, "active": true }
+{ "id": "550e8400-e29b-41d4-a716-446655440002", "code": "DS-BOM-01", "name": "Andheri Dark Store",
+  "line1": "Link Road, Andheri West", "city": "Mumbai", "state": "Maharashtra",
+  "postalCode": "400053", "phone": "02212345678", "active": true }
 ```
 
 ### Field limits (violations return `VALIDATION_ERROR`)
 
 | Field | Rule |
 |---|---|
-| `name` | required, max 100 |
+| `fullName` | required, max 100 |
 | `email` | required, valid email |
 | `password` | required, 8 to 72 characters |
 | `phone` | optional, max 20 |
-| address `line1` / `city` / `pincode` | required (`pincode` max 10), `line1` max 200, `city` max 100 |
+| address `line1` / `city` / `postalCode` | required (`postalCode` max 20), `line1` max 200, `city` max 100 |
 | address `label` | optional, max 50 |
 | store `code` | required, max 20 (saved upper-case) |
 | store `name` | required, max 100 |
@@ -92,7 +94,7 @@ Network failures (server down, no internet) have **no body**. Handle them separa
 Creates a **CUSTOMER**. It does not log in. Call `/auth/login` next.
 
 ```json
-{ "name": "Asha Rao", "email": "asha@example.com", "password": "Secret@123", "phone": "9876543210" }
+{ "fullName": "Asha Rao", "email": "asha@example.com", "password": "Secret@123", "phone": "9876543210" }
 ```
 - `201` with a **User**
 - `400 VALIDATION_ERROR`, `409 EMAIL_ALREADY_EXISTS`
@@ -129,7 +131,7 @@ If two requests refresh at the same time with the same token, the second one fai
 
 ### PUT `/users/me`
 ```json
-{ "name": "Asha R.", "phone": "9123456780" }
+{ "fullName": "Asha R.", "phone": "9123456780" }
 ```
 - `200` with the updated **User**
 - `name` is required. Leaving out `phone` (or sending `null`) **clears** the phone number, so always send the current value.
@@ -142,15 +144,15 @@ If two requests refresh at the same time with the same token, the second one fai
 ### POST `/users/me/addresses`
 ```json
 { "label": "Home", "line1": "12 Marine Drive", "line2": "Flat 4B", "city": "Mumbai",
-  "pincode": "400020", "latitude": 18.943, "longitude": 72.823, "isDefault": true }
+  "state": "Maharashtra", "postalCode": "400020", "country": "India", "defaultAddress": true }
 ```
 - `201` with the **Address**
-- The first address is always the default. Sending `isDefault: true` makes this one the default and removes the flag from the others.
+- The first address is always the default. Sending `defaultAddress: true` makes this one the default and removes the flag from the others.
 
 ### PUT `/users/me/addresses/{id}`
 Same body as POST. Replaces all fields.
 - `200` with the **Address**, `404 NOT_FOUND` if it is not the caller's address
-- `isDefault: true` moves the default here. `false` or missing does not remove the default.
+- `defaultAddress: true` moves the default here. `false` or missing does not remove the default.
 
 ### DELETE `/users/me/addresses/{id}`
 - `204`, or `404 NOT_FOUND`
@@ -164,8 +166,9 @@ Same body as POST. Replaces all fields.
 
 ### POST `/stores` (ADMIN)
 ```json
-{ "code": "DS-BOM-01", "name": "Andheri Dark Store", "address": "Link Road, Andheri West",
-  "city": "Mumbai", "phone": "02212345678", "latitude": 19.1364, "longitude": 72.8296, "active": true }
+{ "code": "DS-BOM-01", "name": "Andheri Dark Store", "line1": "Link Road, Andheri West",
+  "city": "Mumbai", "state": "Maharashtra", "postalCode": "400053",
+  "phone": "02212345678", "active": true }
 ```
 - `201` with the **Store**, `409 STORE_CODE_EXISTS`, `403 ACCESS_DENIED`
 
@@ -177,8 +180,8 @@ Same body. Replaces all fields (omitted optional fields become `null`; omitted `
 
 ### POST `/admin/users`
 ```json
-{ "name": "Store Manager", "email": "mgr@darkstore.com", "password": "Manager@123",
-  "phone": "9000000001", "role": "MANAGER", "storeId": 1 }
+{ "fullName": "Store Manager", "email": "mgr@darkstore.com", "password": "Manager@123",
+  "phone": "9000000001", "role": "MANAGER", "storeId": "550e8400-e29b-41d4-a716-446655440002" }
 ```
 - `role` must be `MANAGER` or `RIDER`. `storeId` is required and must exist.
 - `201` with a **User**

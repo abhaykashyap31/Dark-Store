@@ -1,4 +1,5 @@
 import 'package:darkstore/placeholders/auth_api_mock.dart';
+import 'package:darkstore/placeholders/mock_ids.dart';
 import 'package:darkstore/placeholders/order_api_mock.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,7 +28,11 @@ void main() {
   });
 
   test('cart CRUD and checkout create CONFIRMED order', () {
-    orders.addCartItem(productId: 'p_100', quantity: 2, storeId: '1');
+    orders.addCartItem(
+      productId: 'p_100',
+      quantity: 2,
+      storeId: MockIds.defaultStore,
+    );
     final cart = orders.cart();
     expect((cart['items'] as List).length, 1);
     expect(cart['subtotal'], 110.0);
@@ -64,7 +69,7 @@ void main() {
       () => orders.addCartItem(
         productId: 'p_102',
         quantity: 1,
-        storeId: '1',
+        storeId: MockIds.defaultStore,
       ),
       throwsA(isA<Exception>()),
     );

@@ -1,5 +1,6 @@
 import 'package:darkstore/placeholders/admin_api_mock.dart';
 import 'package:darkstore/placeholders/auth_api_mock.dart';
+import 'package:darkstore/placeholders/mock_ids.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,7 +15,7 @@ void main() {
   test('creating MANAGER/RIDER requires storeId', () {
     expect(
       () => admin.createUser({
-        'name': 'No Store Manager',
+        'fullName': 'No Store Manager',
         'email': 'nostore@darkstore.com',
         'password': 'password',
         'role': 'MANAGER',
@@ -23,14 +24,15 @@ void main() {
     );
 
     final created = admin.createUser({
-      'name': 'New Manager',
+      'fullName': 'New Manager',
       'email': 'new.manager@darkstore.com',
       'password': 'password',
       'role': 'MANAGER',
-      'storeId': '1',
+      'storeId': MockIds.defaultStore,
     });
     expect(created['role'], 'MANAGER');
-    expect('${created['storeId']}', '1');
+    expect('${created['storeId']}', MockIds.defaultStore);
+    expect(created['fullName'], 'New Manager');
   });
 
   test('deactivated user cannot login', () {
@@ -55,9 +57,15 @@ void main() {
     final store = admin.createStore({
       'name': 'Whitefield Darkstore',
       'code': 'BLR-WFD',
+      'line1': 'ITPL Main Road',
       'city': 'Bengaluru',
+      'state': 'Karnataka',
+      'postalCode': '560066',
+      'phone': '0804000099',
     });
     expect(store['active'], isTrue);
+    expect(store['line1'], 'ITPL Main Road');
+    expect(store['postalCode'], '560066');
 
     final product = admin.createProduct({
       'name': 'Butter 100g',

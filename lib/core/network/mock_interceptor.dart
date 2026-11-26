@@ -74,7 +74,7 @@ class MockInterceptor extends QueuedInterceptor {
         return auth.register(
           email: body['email'] as String? ?? '',
           password: body['password'] as String? ?? '',
-          name: body['name'] as String? ?? '',
+          name: '${body['fullName'] ?? body['name'] ?? ''}',
           phone: body['phone'] as String?,
           role: body['role'] as String?,
         );
@@ -438,7 +438,7 @@ class MockInterceptor extends QueuedInterceptor {
           orderId: assignMatch.group(1)!,
           storeId: storeId,
           riderId: riderId,
-          riderName: '${rider.first['name'] ?? 'Rider'}',
+          riderName: '${rider.first['fullName'] ?? rider.first['name'] ?? 'Rider'}',
         );
       } catch (e) {
         throw _clientError(options, 400, e);

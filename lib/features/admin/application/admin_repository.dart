@@ -92,11 +92,11 @@ class AdminRepository {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.adminUsers,
         data: {
-          'name': name,
+          'fullName': name,
           'email': email,
           'password': password,
           'role': role,
-          'storeId': int.tryParse(storeId) ?? storeId,
+          'storeId': storeId,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
         },
       );

@@ -1,5 +1,6 @@
 import '../core/constants/order_status.dart';
 import 'catalog_api_mock.dart';
+import 'mock_ids.dart';
 
 /// Mutable in-memory cart / orders mock for Order & Fulfillment paths.
 class OrderApiMock {
@@ -29,7 +30,7 @@ class OrderApiMock {
       'id': 'o_500',
       'orderNumber': 'DS-10021',
       'status': OrderStatus.confirmed,
-      'storeId': '1',
+      'storeId': MockIds.defaultStore,
       'totalAmount': 320.0,
       'itemsCount': 4,
       'paymentMethod': 'COD',
@@ -77,7 +78,7 @@ class OrderApiMock {
       'id': 'o_510',
       'orderNumber': 'DS-10025',
       'status': OrderStatus.picking,
-      'storeId': '1',
+      'storeId': MockIds.defaultStore,
       'totalAmount': 210.0,
       'itemsCount': 3,
       'paymentMethod': 'COD',
@@ -130,13 +131,13 @@ class OrderApiMock {
       'id': 'o_520',
       'orderNumber': 'DS-10026',
       'status': OrderStatus.outForDelivery,
-      'storeId': '1',
+      'storeId': MockIds.defaultStore,
       'totalAmount': 150.0,
       'itemsCount': 2,
       'paymentMethod': 'MOCK_PAY',
       'paymentStatus': 'MOCK_PAID',
       'customerName': 'Asha Customer',
-      'assignedRiderId': '20',
+      'assignedRiderId': MockIds.userRider,
       'assignedRiderName': 'Delivery Rider',
       'delivery': {
         'recipientName': 'Asha Customer',
@@ -196,13 +197,13 @@ class OrderApiMock {
       'id': 'o_530',
       'orderNumber': 'DS-10028',
       'status': OrderStatus.assigned,
-      'storeId': '1',
+      'storeId': MockIds.defaultStore,
       'totalAmount': 275.0,
       'itemsCount': 3,
       'paymentMethod': 'COD',
       'paymentStatus': 'PENDING',
       'customerName': 'Asha Customer',
-      'assignedRiderId': '20',
+      'assignedRiderId': MockIds.userRider,
       'assignedRiderName': 'Delivery Rider',
       'delivery': {
         'recipientName': 'Asha Customer',
@@ -346,7 +347,7 @@ class OrderApiMock {
     final productId = _cartItems[index]['productId'] as String;
     final product = CatalogApiMock().productById(
       id: productId,
-      storeId: _cartStoreId ?? '1',
+      storeId: _cartStoreId ?? MockIds.defaultStore,
     );
     final stockQty = product['stockQty'] as int;
     if (quantity > stockQty) {
@@ -406,7 +407,7 @@ class OrderApiMock {
       'status': 'CONFIRMED',
       'storeId': _cartStoreId,
       'userId': user?['id'],
-      'customerName': user?['name'] ?? 'Customer',
+      'customerName': user?['fullName'] ?? user?['name'] ?? 'Customer',
       'itemsCount': items.fold<int>(
         0,
         (sum, item) => sum + (item['quantity'] as int),
@@ -417,7 +418,7 @@ class OrderApiMock {
       'paymentStatus': paymentMethod == 'COD' ? 'PENDING' : 'MOCK_PAID',
       'addressId': addressId,
       'delivery': {
-        'recipientName': user?['name'] ?? 'Customer',
+        'recipientName': user?['fullName'] ?? user?['name'] ?? 'Customer',
         'phone': user?['phone'],
         'label': addressSnapshot['label'],
         'line1': addressSnapshot['line1'],

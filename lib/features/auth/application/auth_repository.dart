@@ -45,9 +45,10 @@ class AuthRepository {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.authRegister,
         data: {
-          'name': name,
+          'fullName': name,
           'email': email,
           'password': password,
+          // Mock/demo only — live Gateway creates CUSTOMER and ignores role.
           'role': role.apiValue,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
         },
@@ -104,7 +105,7 @@ class AuthRepository {
       final response = await _dio.put<Map<String, dynamic>>(
         ApiEndpoints.usersMe,
         data: {
-          'name': name,
+          'fullName': name,
           'phone': phone,
         },
       );

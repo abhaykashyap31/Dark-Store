@@ -54,8 +54,10 @@ flutter run
 
 ### Live Gateway
 
+Frontend URL is fixed: **http://localhost:5000**.
+
 ```bash
-flutter run \
+flutter run -d chrome --web-hostname=localhost --web-port=5000 \
   --dart-define=USE_MOCK_APIS=false \
   --dart-define=API_BASE_URL=http://localhost:8080/api/v1 \
   --dart-define=ENABLE_API_LOGS=true
@@ -69,7 +71,7 @@ flutter build web \
   --dart-define=API_BASE_URL=https://gateway.example.com
 ```
 
-**Web / CORS:** Gateway must allow the Flutter origin (e.g. `http://localhost:xxxxx`) and headers `Authorization`, `Content-Type`, `X-Correlation-Id`.
+**Web / CORS:** Gateway must allow origin `http://localhost:5000` and headers `Authorization`, `Content-Type`, `X-Correlation-Id`.
 
 ---
 

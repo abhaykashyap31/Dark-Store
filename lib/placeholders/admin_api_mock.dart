@@ -1,5 +1,6 @@
 import 'auth_api_mock.dart';
 import 'catalog_api_mock.dart';
+import 'mock_ids.dart';
 
 /// Mutable admin platform mock: stores, staff accounts, catalogue.
 class AdminApiMock {
@@ -14,31 +15,37 @@ class AdminApiMock {
   final List<Map<String, dynamic>> _stores = [];
   final List<Map<String, dynamic>> _products = [];
   final List<Map<String, dynamic>> _categories = [];
+  int _storeSeq = 100;
 
   void resetForTests() {
     _stores.clear();
     _products.clear();
     _categories.clear();
+    _storeSeq = 100;
     _seed();
   }
 
   void _seed() {
     _stores.addAll([
       {
-        'id': 1,
+        'id': MockIds.storeKoramangala,
         'name': 'Koramangala Darkstore',
         'code': 'BLR-KOR',
+        'line1': 'Koramangala 5th Block',
         'city': 'Bengaluru',
-        'address': 'Koramangala 5th Block',
+        'state': 'Karnataka',
+        'postalCode': '560095',
         'phone': '0804000001',
         'active': true,
       },
       {
-        'id': 2,
+        'id': MockIds.storeIndiranagar,
         'name': 'Indiranagar Darkstore',
         'code': 'BLR-IND',
+        'line1': '100 Feet Road',
         'city': 'Bengaluru',
-        'address': '100 Feet Road',
+        'state': 'Karnataka',
+        'postalCode': '560038',
         'phone': '0804000002',
         'active': true,
       },
@@ -100,13 +107,17 @@ class AdminApiMock {
       throw Exception('Store code already exists');
     }
     final store = <String, dynamic>{
-      'id': 's_${DateTime.now().millisecondsSinceEpoch}',
+      'id':
+          '00000000-0000-4000-b000-${(_storeSeq++).toString().padLeft(12, '0')}',
       'name': name,
       'code': code,
+      'line1': (body['line1'] as String? ?? body['address'] as String? ?? '')
+          .trim(),
       'city': (body['city'] as String? ?? '').trim(),
-      'address': (body['address'] as String? ?? '').trim(),
+      'state': (body['state'] as String? ?? '').trim(),
+      'postalCode': (body['postalCode'] as String? ?? '').trim(),
       'phone': (body['phone'] as String? ?? '').trim(),
-      'active': true,
+      'active': body['active'] as bool? ?? true,
     };
     _stores.add(store);
     CatalogApiMock().upsertStore(store);
@@ -125,11 +136,20 @@ class AdminApiMock {
       }
       store['code'] = code;
     }
+    if (body['line1'] != null) {
+      store['line1'] = (body['line1'] as String).trim();
+    } else if (body['address'] != null) {
+      store['line1'] = (body['address'] as String).trim();
+    }
     if (body['city'] != null) store['city'] = (body['city'] as String).trim();
-    if (body['address'] != null) {
-      store['address'] = (body['address'] as String).trim();
+    if (body['state'] != null) store['state'] = (body['state'] as String).trim();
+    if (body['postalCode'] != null) {
+      store['postalCode'] = (body['postalCode'] as String).trim();
     }
     if (body['phone'] != null) store['phone'] = (body['phone'] as String).trim();
+    if (body.containsKey('active') && body['active'] != null) {
+      store['active'] = body['active'] == true;
+    }
     CatalogApiMock().upsertStore(store);
     return Map<String, dynamic>.from(store);
   }
@@ -171,7 +191,7 @@ class AdminApiMock {
     return AuthApiMock().createStaffUser(
       email: body['email'] as String? ?? '',
       password: body['password'] as String? ?? 'password',
-      name: body['name'] as String? ?? '',
+      name: '${body['fullName'] ?? body['name'] ?? ''}',
       phone: body['phone'] as String?,
       role: role,
       storeId: storeId,

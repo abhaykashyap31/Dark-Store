@@ -20,28 +20,50 @@ class _AdminStoresScreenState extends ConsumerState<AdminStoresScreen> {
   Future<void> _upsertStore({Store? existing}) async {
     final name = TextEditingController(text: existing?.name ?? '');
     final code = TextEditingController(text: existing?.code ?? '');
+    final line1 = TextEditingController(text: existing?.line1 ?? '');
     final city = TextEditingController(text: existing?.city ?? 'Bengaluru');
+    final state = TextEditingController(text: existing?.state ?? 'Karnataka');
+    final postal = TextEditingController(text: existing?.postalCode ?? '');
+    final phone = TextEditingController(text: existing?.phone ?? '');
 
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(existing == null ? 'Create store' : 'Edit store'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            TextField(
-              controller: code,
-              decoration: const InputDecoration(labelText: 'Code'),
-            ),
-            TextField(
-              controller: city,
-              decoration: const InputDecoration(labelText: 'City'),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: code,
+                decoration: const InputDecoration(labelText: 'Code'),
+              ),
+              TextField(
+                controller: line1,
+                decoration: const InputDecoration(labelText: 'Address line 1'),
+              ),
+              TextField(
+                controller: city,
+                decoration: const InputDecoration(labelText: 'City'),
+              ),
+              TextField(
+                controller: state,
+                decoration: const InputDecoration(labelText: 'State'),
+              ),
+              TextField(
+                controller: postal,
+                decoration: const InputDecoration(labelText: 'Postal code'),
+              ),
+              TextField(
+                controller: phone,
+                decoration: const InputDecoration(labelText: 'Phone'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -61,7 +83,12 @@ class _AdminStoresScreenState extends ConsumerState<AdminStoresScreen> {
       final body = {
         'name': name.text.trim(),
         'code': code.text.trim(),
+        'line1': line1.text.trim(),
         'city': city.text.trim(),
+        'state': state.text.trim(),
+        'postalCode': postal.text.trim(),
+        'phone': phone.text.trim(),
+        'active': existing?.active ?? true,
       };
       if (existing == null) {
         await ref.read(adminRepositoryProvider).createStore(body);

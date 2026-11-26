@@ -2864,7 +2864,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productId\": \"{{productId}}\",\n  \"price\": 4.5,\n  \"onHand\": 10,\n  \"lowStockThreshold\": 3\n}",
+              "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productId\": \"{{productId}}\",\n  \"price\": 4.5,\n  \"onHand\": 10,\n  \"lowStockThreshold\": 8\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3026,7 +3026,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productId\": \"{{productId}}\",\n  \"quantityChange\": -8,\n  \"reason\": \"POSTMAN_TEST_ADJUSTMENT\",\n  \"referenceId\": null\n}",
+              "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"productId\": \"{{productId}}\",\n  \"quantityChange\": -2,\n  \"reason\": \"POSTMAN_TEST_ADJUSTMENT\",\n  \"referenceId\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3052,7 +3052,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('stock adjusted', () => pm.response.to.have.status(200));",
-                  "pm.test('on-hand quantity updated', () => pm.expect(pm.response.json().onHand).to.eql(2));"
+                  "pm.test('on-hand quantity updated', () => pm.expect(pm.response.json().onHand).to.eql(8));"
                 ]
               }
             }
@@ -3156,7 +3156,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('validation succeeds', () => pm.response.to.have.status(200));",
-                  "pm.test('available quantity and price returned', () => { const item = pm.response.json().items[0]; pm.expect(item.available).to.eql(2); pm.expect(Number(item.price)).to.eql(4.5); });"
+                  "pm.test('available quantity and price returned', () => { const item = pm.response.json().items[0]; pm.expect(item.available).to.eql(8); pm.expect(Number(item.price)).to.eql(4.5); });"
                 ]
               }
             }
